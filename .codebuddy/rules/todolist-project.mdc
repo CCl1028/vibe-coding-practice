@@ -1,0 +1,643 @@
+---
+description: TodoList 项目完整规范，包含产品需求、架构设计、前端开发任务（分 3 个迭代阶段）
+globs:
+alwaysApply: false
+---
+
+# TodoList 项目规范
+
+## 项目概述
+
+一个功能完善的 TodoList 应用，旨在帮助前端开发人员深入学习 React 生态系统。
+**采用 3 个迭代阶段逐步交付，功能递进式增加。**
+
+---
+
+## 迭代规划总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        迭代路线图                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  迭代一 (MVP)          迭代二 (增强)         迭代三 (完善)       │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐     │
+│  │ 基础任务管理 │  →   │ 分类与筛选  │  →   │ 统计与优化  │     │
+│  │             │      │             │      │             │     │
+│  │ • 新增任务  │      │ • 任务分类  │      │ • 数据图表  │     │
+│  │ • 完成/删除 │      │ • 优先级    │      │ • 性能优化  │     │
+│  │ • 本地存储  │      │ • 截止日期  │      │ • 错误边界  │     │
+│  │             │      │ • 搜索过滤  │      │ • 懒加载    │     │
+│  └─────────────┘      └─────────────┘      └─────────────┘     │
+│                                                                 │
+│  React 基础特性        React 进阶特性        React 高级特性      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| 迭代 | 目标 | 预计工期 | 核心价值 |
+|------|------|----------|----------|
+| **迭代一** | MVP 最小可用产品 | 3 天 | 掌握 React 基础 + Redux 核心 |
+| **迭代二** | 功能增强版 | 3 天 | 掌握 React 进阶特性 + 复杂状态 |
+| **迭代三** | 完整版 | 2 天 | 掌握性能优化 + 高级模式 |
+
+---
+
+## 一、产品角色 - 需求文档
+
+### 1.1 功能清单（按迭代划分）
+
+#### 迭代一：MVP 基础版
+| 功能 | 描述 | 用户故事 |
+|------|------|----------|
+| 添加任务 | 输入标题快速创建任务 | 作为用户，我可以快速添加一条待办事项 |
+| 完成任务 | 点击标记任务为已完成 | 作为用户，我可以标记任务完成状态 |
+| 删除任务 | 删除不需要的任务 | 作为用户，我可以删除任务 |
+| 编辑任务 | 修改任务标题 | 作为用户，我可以修改任务内容 |
+| 数据持久化 | localStorage 存储 | 作为用户，刷新页面后数据仍然保留 |
+| 任务统计 | 显示总数/已完成数 | 作为用户，我可以看到任务完成进度 |
+
+#### 迭代二：功能增强版（在迭代一基础上新增）
+| 功能 | 描述 | 用户故事 |
+|------|------|----------|
+| 任务分类 | 支持多个分类标签 | 作为用户，我可以将任务归类到不同分类 |
+| 优先级 | 高/中/低三档 | 作为用户，我可以设置任务优先级 |
+| 截止日期 | 设置 deadline | 作为用户，我可以设置任务截止时间 |
+| 过期提醒 | 过期任务高亮显示 | 作为用户，我可以看到哪些任务已过期 |
+| 搜索功能 | 按关键词搜索 | 作为用户，我可以搜索任务 |
+| 状态筛选 | 全部/进行中/已完成 | 作为用户，我可以按状态筛选任务 |
+| 分类筛选 | 按分类查看任务 | 作为用户，我可以按分类筛选任务 |
+
+#### 迭代三：完整版（在迭代二基础上新增）
+| 功能 | 描述 | 用户故事 |
+|------|------|----------|
+| 完成率图表 | 饼图展示完成比例 | 作为用户，我可以直观看到完成率 |
+| 分类分布图 | 柱状图展示各分类数量 | 作为用户，我可以看到任务分类分布 |
+| 趋势图表 | 折线图展示完成趋势 | 作为用户，我可以看到完成趋势 |
+| 批量操作 | 批量删除/完成 | 作为用户，我可以批量处理任务 |
+| 拖拽排序 | 拖拽调整任务顺序 | 作为用户，我可以拖拽排序任务 |
+
+### 1.2 页面结构演进
+
+#### 迭代一页面结构
+```
+┌─────────────────────────────────────────┐
+│  Header (标题 + 简单统计: 3/10 已完成)   │
+├─────────────────────────────────────────┤
+│  AddTodo (输入框 + 添加按钮)             │
+├─────────────────────────────────────────┤
+│  TodoList                               │
+│  ┌─────────────────────────────────┐    │
+│  │ □ 任务1                    [删除]│    │
+│  │ ☑ 任务2 (已完成)           [删除]│    │
+│  │ □ 任务3                    [删除]│    │
+│  └─────────────────────────────────┘    │
+├─────────────────────────────────────────┤
+│  Footer (清除已完成)                     │
+└─────────────────────────────────────────┘
+```
+
+#### 迭代二页面结构
+```
+┌─────────────────────────────────────────┐
+│  Header (标题 + 统计概览)                │
+├─────────────────────────────────────────┤
+│  Toolbar (搜索框 + 状态筛选 + 新增按钮)  │
+├─────────────────────────────────────────┤
+│  ┌─────────────┐  ┌──────────────────┐  │
+│  │  Sidebar    │  │   TodoList       │  │
+│  │  ─────────  │  │  ┌────────────┐  │  │
+│  │  全部 (10)  │  │  │ 🔴高 任务1 │  │  │
+│  │  学习 (3)   │  │  │ 截止:12/31 │  │  │
+│  │  工作 (5)   │  │  └────────────┘  │  │
+│  │  生活 (2)   │  │  ┌────────────┐  │  │
+│  │             │  │  │ 🟡中 任务2 │  │  │
+│  └─────────────┘  │  └────────────┘  │  │
+│                   └──────────────────┘  │
+└─────────────────────────────────────────┘
+```
+
+#### 迭代三页面结构（最终形态）
+```
+┌─────────────────────────────────────────┐
+│  Header (标题 + 统计概览)                │
+├─────────────────────────────────────────┤
+│  Toolbar (搜索框 + 筛选器 + 新增按钮)    │
+├─────────────────────────────────────────┤
+│  ┌─────────────┐  ┌──────────────────┐  │
+│  │  Sidebar    │  │   Task List      │  │
+│  │  (分类列表) │  │   (任务列表)     │  │
+│  │             │  │   支持拖拽排序   │  │
+│  └─────────────┘  └──────────────────┘  │
+├─────────────────────────────────────────┤
+│  Statistics (图表统计区域)               │
+│  ┌──────────┐ ┌──────────┐ ┌─────────┐ │
+│  │ 完成率   │ │ 分类分布 │ │ 趋势图  │ │
+│  │ (饼图)   │ │ (柱状图) │ │ (折线)  │ │
+│  └──────────┘ └──────────┘ └─────────┘ │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## 二、架构师角色 - 技术方案
+
+### 2.1 技术栈选型
+
+| 类别 | 技术 | 引入迭代 | 说明 |
+|------|------|----------|------|
+| 框架 | React 18 | 迭代一 | 使用最新特性 |
+| 构建 | Vite + Babel | 迭代一 | 快速开发体验 |
+| 状态管理 | Redux Toolkit | 迭代一 | Flux 架构最佳实践 |
+| 样式 | TailwindCSS | 迭代一 | 原子化 CSS |
+| 图表 | ReCharts | 迭代三 | React 图表库 |
+| Mock | Mock Service Worker (MSW) | 迭代一 | API Mock |
+
+### 2.2 为什么选择 Redux Toolkit
+
+- **Flux 架构**: 单向数据流，概念清晰
+- **学习价值**: 业界主流，面试必备
+- **DevTools**: 强大的调试工具
+- **RTK Query**: 为后续全栈扩展铺路
+
+### 2.3 目录结构演进
+
+#### 迭代一目录结构
+```
+src/
+├── main.jsx                 # 入口文件
+├── App.jsx                  # 根组件
+├── index.css                # 全局样式 (Tailwind)
+│
+├── components/              # 通用组件
+│   ├── ui/                  # 基础 UI 组件
+│   │   ├── Button.jsx
+│   │   └── Input.jsx
+│   └── Header.jsx
+│
+├── features/                # 功能模块
+│   └── todos/
+│       ├── components/
+│       │   ├── TodoList.jsx
+│       │   ├── TodoItem.jsx
+│       │   └── AddTodo.jsx
+│       └── todosSlice.js
+│
+├── store/                   # Redux Store
+│   └── index.js
+│
+├── hooks/                   # 自定义 Hooks
+│   └── useLocalStorage.js
+│
+└── mocks/                   # Mock 数据
+    └── data.js
+```
+
+#### 迭代二新增目录
+```
+src/
+├── components/
+│   ├── ui/
+│   │   ├── Modal.jsx        # 新增
+│   │   ├── Badge.jsx        # 新增
+│   │   ├── Select.jsx       # 新增
+│   │   └── DatePicker.jsx   # 新增
+│   ├── Sidebar.jsx          # 新增
+│   └── Toolbar.jsx          # 新增
+│
+├── features/
+│   ├── todos/
+│   │   ├── components/
+│   │   │   ├── TodoForm.jsx     # 新增 (替代简单的 AddTodo)
+│   │   │   └── TodoFilter.jsx   # 新增
+│   │   └── todosSelectors.js    # 新增
+│   │
+│   └── categories/              # 新增模块
+│       ├── components/
+│       │   └── CategoryList.jsx
+│       ├── categoriesSlice.js
+│       └── categoriesSelectors.js
+│
+├── hooks/
+│   ├── useDebounce.js       # 新增
+│   └── useTodoStats.js      # 新增
+│
+└── utils/                   # 新增
+    ├── dateUtils.js
+    └── priorityUtils.js
+```
+
+#### 迭代三新增目录
+```
+src/
+├── components/
+│   └── Statistics.jsx       # 新增
+│
+├── features/
+│   └── statistics/          # 新增模块
+│       └── components/
+│           ├── CompletionChart.jsx
+│           ├── CategoryChart.jsx
+│           └── TrendChart.jsx
+│
+├── store/
+│   └── middleware.js        # 新增
+│
+└── mocks/
+    ├── handlers.js          # 新增
+    └── browser.js           # 新增
+```
+
+### 2.4 数据模型演进
+
+#### 迭代一数据模型
+```javascript
+// Todo 基础结构
+{
+  id: string,
+  title: string,
+  completed: boolean,
+  createdAt: string
+}
+```
+
+#### 迭代二数据模型（扩展）
+```javascript
+// Todo 增强结构
+{
+  id: string,
+  title: string,
+  description: string,        // 新增
+  completed: boolean,
+  priority: 'high' | 'medium' | 'low',  // 新增
+  categoryId: string,         // 新增
+  dueDate: string | null,     // 新增
+  createdAt: string,
+  updatedAt: string           // 新增
+}
+
+// Category 结构（新增）
+{
+  id: string,
+  name: string,
+  color: string,
+  icon: string
+}
+```
+
+#### 迭代三数据模型（扩展）
+```javascript
+// Todo 完整结构
+{
+  // ... 迭代二所有字段
+  order: number,              // 新增：排序顺序
+  completedAt: string | null  // 新增：完成时间（用于趋势统计）
+}
+```
+
+---
+
+## 三、前端开发角色 - 开发任务
+
+### 3.1 React 特性覆盖清单（按迭代划分）
+
+#### 迭代一覆盖特性
+| 特性 | 应用场景 | 必须掌握 |
+|------|----------|----------|
+| **useState** | 输入框状态、UI 开关 | ✅ |
+| **useEffect** | localStorage 同步、组件挂载 | ✅ |
+| **useCallback** | 事件处理函数传递 | ✅ |
+| **React.memo** | TodoItem 避免重复渲染 | ✅ |
+| **条件渲染** | 空状态、完成状态样式 | ✅ |
+| **列表渲染** | map + key | ✅ |
+| **受控组件** | 表单输入 | ✅ |
+| **Props 传递** | 父子组件通信 | ✅ |
+
+#### 迭代二新增特性
+| 特性 | 应用场景 | 必须掌握 |
+|------|----------|----------|
+| **useReducer** | TodoForm 复杂表单状态 | ✅ |
+| **useMemo** | 筛选后任务列表计算 | ✅ |
+| **useRef** | 输入框聚焦、滚动控制 | ✅ |
+| **forwardRef** | Input/Modal 组件封装 | ✅ |
+| **useImperativeHandle** | Modal 暴露 open/close 方法 | ⭐ |
+| **Portal** | Modal 弹窗渲染到 body | ✅ |
+| **Custom Hooks** | useDebounce, useTodoStats | ✅ |
+
+#### 迭代三新增特性
+| 特性 | 应用场景 | 必须掌握 |
+|------|----------|----------|
+| **Suspense + lazy** | 图表组件懒加载 | ✅ |
+| **Error Boundary** | 图表加载错误处理 | ✅ |
+| **useContext** | 主题切换 (可选) | ⭐ |
+| **useTransition** | 大列表筛选不阻塞 UI | ⭐ |
+
+### 3.2 迭代一：MVP 基础版开发任务
+
+**目标**: 实现最基础的 TodoList，掌握 React + Redux 核心概念
+
+#### 任务清单
+
+##### Day 1: 项目搭建
+- [ ] 使用 Vite 创建 React 项目
+- [ ] 配置 TailwindCSS
+- [ ] 配置 Babel (如需要)
+- [ ] 安装并配置 Redux Toolkit
+- [ ] 创建基础目录结构
+- [ ] 配置 ESLint + Prettier
+
+##### Day 2: 核心组件开发
+- [ ] **todosSlice.js**: 创建 Redux slice
+  - actions: addTodo, toggleTodo, deleteTodo, editTodo
+  - 使用 createSlice + nanoid
+- [ ] **store/index.js**: 配置 Redux store
+- [ ] **Header.jsx**: 标题 + 统计显示
+- [ ] **AddTodo.jsx**: 输入框 + 添加按钮 (useState + 受控组件)
+- [ ] **TodoList.jsx**: 任务列表容器 (useSelector)
+- [ ] **TodoItem.jsx**: 单个任务项 (React.memo + useCallback)
+
+##### Day 3: 功能完善
+- [ ] 编辑功能: 双击进入编辑模式
+- [ ] localStorage 持久化
+  - 方案一: useEffect 监听 state 变化
+  - 方案二: Redux middleware (推荐)
+- [ ] **useLocalStorage.js**: 自定义 Hook 封装
+- [ ] 空状态展示
+- [ ] 清除已完成功能
+- [ ] 基础样式美化
+
+#### 迭代一验收标准
+- [ ] 可以添加新任务
+- [ ] 可以标记任务完成/未完成
+- [ ] 可以删除任务
+- [ ] 可以编辑任务标题
+- [ ] 刷新页面数据不丢失
+- [ ] Redux DevTools 可正常使用
+
+---
+
+### 3.3 迭代二：功能增强版开发任务
+
+**目标**: 添加分类、优先级、筛选功能，掌握 React 进阶特性
+
+#### 任务清单
+
+##### Day 4: 数据模型升级 + 分类功能
+- [ ] 升级 Todo 数据结构 (添加 priority, categoryId, dueDate 等)
+- [ ] **categoriesSlice.js**: 分类状态管理
+- [ ] **Sidebar.jsx**: 分类列表组件
+- [ ] **CategoryList.jsx**: 分类项渲染
+- [ ] 默认分类数据初始化
+
+##### Day 5: 任务表单增强
+- [ ] **TodoForm.jsx**: 完整的任务表单 (useReducer 管理)
+  - 标题、描述、优先级、分类、截止日期
+- [ ] **Modal.jsx**: 弹窗组件 (Portal + forwardRef + useImperativeHandle)
+- [ ] **Badge.jsx**: 优先级标签组件
+- [ ] **Select.jsx**: 下拉选择组件
+- [ ] **DatePicker.jsx**: 日期选择 (可用原生 input[type=date])
+- [ ] 过期任务高亮样式
+
+##### Day 6: 搜索与筛选
+- [ ] **TodoFilter.jsx**: 筛选组件 (状态筛选 tabs)
+- [ ] **Toolbar.jsx**: 工具栏 (搜索 + 筛选 + 新增按钮)
+- [ ] **useDebounce.js**: 防抖 Hook (搜索输入)
+- [ ] **todosSelectors.js**: 使用 createSelector 优化
+  - selectFilteredTodos (useMemo 优化)
+  - selectTodosByCategory
+  - selectTodosByStatus
+- [ ] **useTodoStats.js**: 统计数据 Hook
+
+#### 迭代二验收标准
+- [ ] 可以创建带分类、优先级、截止日期的任务
+- [ ] 可以按分类筛选任务
+- [ ] 可以按状态 (全部/进行中/已完成) 筛选
+- [ ] 可以搜索任务 (带防抖)
+- [ ] 过期任务有明显标识
+- [ ] Modal 弹窗正常工作
+
+---
+
+### 3.4 迭代三：完整版开发任务
+
+**目标**: 添加统计图表、性能优化，掌握 React 高级特性
+
+#### 任务清单
+
+##### Day 7: 统计图表
+- [ ] 安装 ReCharts
+- [ ] **Statistics.jsx**: 统计区域容器
+- [ ] **CompletionChart.jsx**: 完成率饼图 (PieChart)
+- [ ] **CategoryChart.jsx**: 分类分布柱状图 (BarChart)
+- [ ] **TrendChart.jsx**: 完成趋势折线图 (LineChart)
+- [ ] 使用 React.lazy + Suspense 懒加载图表组件
+- [ ] 图表加载 Loading 状态
+
+##### Day 8: 优化与完善
+- [ ] **ErrorBoundary.jsx**: 错误边界组件
+- [ ] 批量选择 + 批量删除/完成
+- [ ] 拖拽排序 (可选，使用 @dnd-kit/core)
+- [ ] 响应式布局适配
+- [ ] 性能优化检查 (React DevTools Profiler)
+- [ ] 代码重构与清理
+- [ ] MSW Mock 服务完善 (为后续全栈铺路)
+
+#### 迭代三验收标准
+- [ ] 图表正常展示且懒加载
+- [ ] 错误边界正常捕获错误
+- [ ] 批量操作功能正常
+- [ ] 无控制台错误/警告
+- [ ] Lighthouse 性能评分 > 90
+
+### 3.5 编码规范
+
+```javascript
+// 组件命名: PascalCase
+// 文件命名: PascalCase.jsx (组件), camelCase.js (工具)
+// Hook 命名: use 前缀
+
+// 组件结构模板
+import { memo, useState, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+
+const ComponentName = memo(function ComponentName({ prop1, prop2 }) {
+  // 1. Hooks
+  const dispatch = useDispatch();
+  const data = useSelector(selectData);
+  const [state, setState] = useState(initialState);
+
+  // 2. Derived state (useMemo)
+  const computed = useMemo(() => /* ... */, [deps]);
+
+  // 3. Callbacks (useCallback)
+  const handleClick = useCallback(() => /* ... */, [deps]);
+
+  // 4. Effects
+  useEffect(() => /* ... */, [deps]);
+
+  // 5. Render
+  return (
+    <div className="...">
+      {/* JSX */}
+    </div>
+  );
+});
+
+export default ComponentName;
+```
+
+### 3.6 Git 提交规范
+
+```
+feat: 新功能
+fix: 修复 bug
+refactor: 重构
+style: 样式调整
+docs: 文档更新
+chore: 构建/工具变更
+```
+
+---
+
+## 四、Mock API 设计
+
+### 4.1 接口列表（按迭代划分）
+
+#### 迭代一接口
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | /api/todos | 获取所有任务 |
+| POST | /api/todos | 创建任务 |
+| PUT | /api/todos/:id | 更新任务 |
+| DELETE | /api/todos/:id | 删除任务 |
+
+#### 迭代二新增接口
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | /api/categories | 获取所有分类 |
+| POST | /api/categories | 创建分类 |
+| DELETE | /api/categories/:id | 删除分类 |
+
+#### 迭代三新增接口
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | /api/statistics | 获取统计数据 |
+| PUT | /api/todos/batch | 批量更新任务 |
+| DELETE | /api/todos/batch | 批量删除任务 |
+
+### 4.2 Mock 数据示例
+
+```javascript
+// mocks/data.js
+
+// 迭代一基础数据
+export const mockTodosV1 = [
+  {
+    id: '1',
+    title: '学习 React Hooks',
+    completed: false,
+    createdAt: '2024-12-01T10:00:00Z'
+  },
+  {
+    id: '2',
+    title: '完成 TodoList MVP',
+    completed: true,
+    createdAt: '2024-12-01T09:00:00Z'
+  }
+];
+
+// 迭代二增强数据
+export const mockTodosV2 = [
+  {
+    id: '1',
+    title: '学习 React Hooks',
+    description: '深入理解 useState, useEffect, useMemo 等',
+    completed: false,
+    priority: 'high',
+    categoryId: '1',
+    dueDate: '2024-12-31',
+    createdAt: '2024-12-01T10:00:00Z',
+    updatedAt: '2024-12-01T10:00:00Z'
+  }
+];
+
+export const mockCategories = [
+  { id: '1', name: '学习', color: '#3B82F6', icon: '📚' },
+  { id: '2', name: '工作', color: '#EF4444', icon: '💼' },
+  { id: '3', name: '生活', color: '#10B981', icon: '🏠' },
+];
+```
+
+---
+
+## 五、验收标准（按迭代划分）
+
+### 5.1 迭代一验收
+
+#### 功能验收
+- [ ] 任务 CRUD 功能正常
+- [ ] 数据持久化正常 (localStorage)
+- [ ] 统计数字显示正确
+
+#### 技术验收
+- [ ] 使用 useState, useEffect, useCallback, React.memo
+- [ ] Redux DevTools 可正常调试
+- [ ] 无控制台错误
+
+#### 代码质量
+- [ ] 组件职责单一
+- [ ] TodoItem 使用 React.memo 优化
+
+---
+
+### 5.2 迭代二验收
+
+#### 功能验收
+- [ ] 分类功能正常
+- [ ] 优先级设置正常
+- [ ] 截止日期设置正常
+- [ ] 搜索筛选功能正常
+- [ ] 过期提醒显示正常
+
+#### 技术验收
+- [ ] 使用 useReducer 管理表单
+- [ ] 使用 useMemo 优化筛选
+- [ ] 使用 forwardRef + useImperativeHandle
+- [ ] 使用 Portal 实现 Modal
+- [ ] 自定义 Hook 抽取合理
+
+#### 代码质量
+- [ ] Selector 使用 createSelector 优化
+- [ ] 防抖搜索实现正确
+
+---
+
+### 5.3 迭代三验收
+
+#### 功能验收
+- [ ] 图表展示正常
+- [ ] 批量操作正常
+- [ ] 拖拽排序正常 (如实现)
+
+#### 技术验收
+- [ ] 使用 Suspense + lazy 懒加载
+- [ ] Error Boundary 正常工作
+- [ ] 覆盖 90% 以上 React 特性清单
+
+#### 性能验收
+- [ ] Lighthouse 性能评分 > 90
+- [ ] 无不必要的重复渲染
+- [ ] 大列表滚动流畅
+
+---
+
+## 六、后续扩展方向
+
+完成三个迭代后，可以继续以下方向：
+
+| 方向 | 技术栈 | 学习目标 |
+|------|--------|----------|
+| **Next.js 全栈** | Next.js + API Routes | SSR/SSG、全栈开发 |
+| **Python 后端** | FastAPI + PostgreSQL | 真实后端 API |
+| **用户系统** | JWT + OAuth | 认证授权 |
+| **实时同步** | WebSocket | 多端同步 |
+| **移动端** | React Native | 跨平台开发 |
