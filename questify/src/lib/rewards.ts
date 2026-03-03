@@ -17,10 +17,10 @@ const TYPE_BONUS = {
 
 // 标签属性映射
 const TAG_STAT_MAPPING = {
-  [QuestTag.STUDY]: { intelligence: 1 },
-  [QuestTag.WORK]: { focus: 1 },
-  [QuestTag.HEALTH]: { vitality: 1 },
-  [QuestTag.LIFE]: { strength: 1 },
+  [QuestTag.STUDY]: { strength: 0, intelligence: 1, focus: 0, vitality: 0 },
+  [QuestTag.WORK]: { strength: 0, intelligence: 0, focus: 1, vitality: 0 },
+  [QuestTag.HEALTH]: { strength: 0, intelligence: 0, focus: 0, vitality: 1 },
+  [QuestTag.LIFE]: { strength: 1, intelligence: 0, focus: 0, vitality: 0 },
 }
 
 export function calculateRewards(
