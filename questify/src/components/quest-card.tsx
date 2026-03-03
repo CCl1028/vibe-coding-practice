@@ -1,0 +1,137 @@
+"use client"
+
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Coins, Star, CheckCircle2, Circle, Trash2 } from "lucide-react"
+import { Quest } from "@/types"
+
+interface QuestCardProps {
+  quest: Quest & {
+    expReward: number
+    goldReward: number
+    strReward: number
+    intReward: number
+    focReward: number
+    vitReward: number
+  }
+  onComplete?: (id: string) => void
+  onDelete?: (id: string) => void
+}
+
+const TYPE_LABELS = {
+  MAIN: "主线任务",
+  SIDE: "支线任务",
+  DAILY: "日常任务",
+  CHALLENGE: "挑战任务",
+}
+
+const DIFFICULTY_LABELS = {
+  EASY: "简单",
+  MEDIUM: "中等",
+  HARD: "困难",
+}
+
+const TAG_LABELS = {
+  STUDY: "学习",
+  WORK: "工作",
+  HEALTH: "健身",
+  LIFE: "生活",
+}
+
+const TYPE_COLORS = {
+  MAIN: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  SIDE: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  DAILY: "bg-green-500/20 text-green-400 border-green-500/30",
+  CHALLENGE: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+}
+
+const DIFFICULTY_COLORS = {
+  EASY: "bg-green-500/20 text-green-400",
+  MEDIUM: "bg-yellow-500/20 text-yellow-400",
+  HARD: "bg-red-500/20 text-red-400",
+}
+
+export function QuestCard({ quest, onComplete, onDelete }: QuestCardProps) {
+  const isCompleted = quest.status === "DONE"
+  const isMain = quest.type === "MAIN"
+
+  return (
+    <Card
+      className={`transition-all ${
+        isMain
+          ? "border-yellow-500/40 bg-gradient-to-br from-yellow-900/10 to-transparent"
+          : "border-slate-700"
+      } ${isCompleted ? "opacity-60" : ""}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-2">
+            {/* 标题 */}
+            <div className="flex items-start gap-2">
+              {isCompleted ? (
+                <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+              )}
+              <h3 className={`font-semibold ${isCompleted ? "line-through" : ""}`}>
+                {quest.title}
+              </h3>
+            </div>
+
+            {/* 描述 */}
+            {quest.description && (
+              <p className="text-sm text-muted-foreground ml-7">{quest.description}</p>
+            )}
+
+            {/* 标签 */}
+            <div className="flex flex-wrap gap-2 ml-7">
+              <Badge className={TYPE_COLORS[quest.type]} variant="outline">
+                {isMain && <Star className="w-3 h-3 mr-1" />}
+                {TYPE_LABELS[quest.type]}
+              </Badge>
+              <Badge className={DIFFICULTY_COLORS[quest.difficulty]} variant="outline">
+                {DIFFICULTY_LABELS[quest.difficulty]}
+              </Badge>
+              <Badge variant="secondary">{TAG_LABELS[quest.tag]}</Badge>
+            </div>
+
+            {/* 奖励 */}
+            <div className="flex gap-4 ml-7 text-sm">
+              <div className="flex items-center gap-1 text-blue-400">
+                <Star className="w-4 h-4" />
+                <span>+{quest.expReward} EXP</span>
+              </div>
+              <div className="flex items-center gap-1 text-yellow-400">
+                <Coins className="w-4 h-4" />
+                <span>+{quest.goldReward}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex flex-col gap-2">
+            {!isCompleted && onComplete && (
+              <Button
+                size="sm"
+                onClick={() => onComplete(quest.id)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                完成
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDelete(quest.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
