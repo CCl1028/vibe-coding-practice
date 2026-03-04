@@ -73,7 +73,7 @@ const QuestCardComponent = ({ quest, onStatusChange, onEdit, onDelete }: QuestCa
             {/* 标题 */}
             <div className="flex items-start gap-2">
               <button
-                onClick={() => onStatusChange?.(quest.id, isCompleted ? "IN_PROGRESS" : "DONE")}
+                onClick={() => onStatusChange?.(quest.id, isCompleted ? "DOING" : "DONE")}
                 className="cursor-pointer"
               >
                 {isCompleted ? (
