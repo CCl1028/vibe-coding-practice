@@ -42,10 +42,32 @@ export default function DashboardPage() {
     newLevel: number
     newTitle: string
   } | null>(null)
+  
+  // 成就通知状态
+  const [achievementNotification, setAchievementNotification] = useState<Achievement | null>(null)
+  
+  // 今日统计状态
+  const [todayStats, setTodayStats] = useState({
+    completedQuests: 0,
+    totalExp: 0,
+    totalGold: 0,
+    mainQuestCompleted: false,
+  })
 
   useEffect(() => {
     loadData()
+    loadTodayStats()
   }, [])
+  
+  const loadTodayStats = () => {
+    const reward = getTodayReward()
+    setTodayStats({
+      completedQuests: reward.questsCompleted,
+      totalExp: reward.exp,
+      totalGold: reward.gold,
+      mainQuestCompleted: reward.mainQuestCompleted,
+    })
+  }
 
   const loadData = async () => {
     try {

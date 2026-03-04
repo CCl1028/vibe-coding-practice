@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { User, Coins, Zap, Brain, Target, Heart } from "lucide-react"
 import { Character } from "@/types"
 import { getExpForNextLevel } from "@/lib/rewards"
+import { motion } from "framer-motion"
 
 interface CharacterCardProps {
   character: Character
