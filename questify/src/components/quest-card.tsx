@@ -149,6 +149,10 @@ export const QuestCard = memo(QuestCardComponent, (prev, next) => {
   return (
     prev.quest.id === next.quest.id &&
     prev.quest.status === next.quest.status &&
-    prev.quest.title === next.quest.title
+    prev.quest.title === next.quest.title &&
+    prev.quest.type === next.quest.type &&
+    prev.quest.difficulty === next.quest.difficulty &&
+    prev.quest.tag === next.quest.tag &&
+    prev.quest.description === next.quest.description
   )
 })
