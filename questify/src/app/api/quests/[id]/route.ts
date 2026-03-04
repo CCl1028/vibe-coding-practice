@@ -32,6 +32,15 @@ export async function PATCH(
     if (body.title) updateData.title = body.title
     if (body.description !== undefined) updateData.description = body.description
     if (body.isToday !== undefined) updateData.isToday = body.isToday
+    if (body.type) updateData.type = body.type
+    if (body.difficulty) updateData.difficulty = body.difficulty
+    if (body.tag) updateData.tag = body.tag
+    if (body.expReward !== undefined) updateData.expReward = body.expReward
+    if (body.goldReward !== undefined) updateData.goldReward = body.goldReward
+    if (body.strReward !== undefined) updateData.strReward = body.strReward
+    if (body.intReward !== undefined) updateData.intReward = body.intReward
+    if (body.focReward !== undefined) updateData.focReward = body.focReward
+    if (body.vitReward !== undefined) updateData.vitReward = body.vitReward
     if (body.status === "DONE" && !quest.completedAt) {
       updateData.completedAt = new Date()
     }

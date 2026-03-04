@@ -71,9 +71,10 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
+      const timestamp = Date.now()
       const [characterRes, questsRes] = await Promise.all([
-        fetch("/api/character"),
-        fetch("/api/quests?isToday=true"),
+        fetch(`/api/character?t=${timestamp}`, { cache: "no-store" }),
+        fetch(`/api/quests?isToday=true&t=${timestamp}`, { cache: "no-store" }),
       ])
 
       const characterData = await characterRes.json()
@@ -221,17 +222,6 @@ export default function DashboardPage() {
     setLevelUpData(null)
   }
 
-  const handleQuickAdd = async (title: string) => {
-    const formData: QuestFormData = {
-      title,
-      type: "SIDE",
-      difficulty: "MEDIUM",
-      tag: "WORK",
-      isToday: true,
-    }
-    await handleCreateQuest(formData)
-  }
-
   const handleCreateQuest = async (data: QuestFormData) => {
     try {
       const rewards = calculateRewards(data.difficulty, data.type, data.tag)
@@ -250,6 +240,9 @@ export default function DashboardPage() {
         }),
       })
 
+      // 先关闭弹窗
+      setQuestFormOpen(false)
+      // 然后重新加载数据
       await loadData()
     } catch (error) {
       console.error("Failed to create quest:", error)
@@ -262,7 +255,7 @@ export default function DashboardPage() {
     try {
       const rewards = calculateRewards(data.difficulty, data.type, data.tag)
 
-      await fetch(`/api/quests/${editingQuest.id}`, {
+      const response = await fetch(`/api/quests/${editingQuest.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -275,8 +268,15 @@ export default function DashboardPage() {
           vitReward: rewards.statReward.vitality,
         }),
       })
+      
+      if (!response.ok) {
+        throw new Error("Failed to update quest")
+      }
 
+      // 先关闭弹窗和清除编辑状态
+      setQuestFormOpen(false)
       setEditingQuest(null)
+      // 重新加载数据（使用 await 确保数据加载完成）
       await loadData()
     } catch (error) {
       console.error("Failed to edit quest:", error)
@@ -331,8 +331,14 @@ export default function DashboardPage() {
     )
   }
 
-  const mainQuest = quests.find((q) => q.type === "MAIN" && q.status !== "DONE")
-  const sideQuests = quests.filter((q) => q.type !== "MAIN")
+  // 分类今日任务，并按状态排序（未完成在前，已完成在后）
+  const sortByStatus = (a: any, b: any) => {
+    if (a.status === "DONE" && b.status !== "DONE") return 1
+    if (a.status !== "DONE" && b.status === "DONE") return -1
+    return 0
+  }
+  const mainQuests = quests.filter((q) => q.type === "MAIN").sort(sortByStatus)
+  const otherQuests = quests.filter((q) => q.type !== "MAIN").sort(sortByStatus)
 
   return (
     <PageWrapper>
@@ -347,7 +353,7 @@ export default function DashboardPage() {
 
         {/* 快速添加任务 */}
         <div className="bg-card border border-border rounded-lg p-4">
-          <QuickAddQuest onAdd={handleQuickAdd} />
+          <QuickAddQuest onAdd={handleCreateQuest} />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -359,29 +365,34 @@ export default function DashboardPage() {
           {/* 任务列表 */}
           <div className="lg:col-span-2 space-y-6">
             {/* 主线任务 */}
-            {mainQuest && (
+            {mainQuests.length > 0 && (
               <div>
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                   <Star className="w-6 h-6 text-yellow-400" />
                   今日主线
                 </h2>
-                <QuestCard
-                  quest={mainQuest}
-                  onStatusChange={handleCompleteQuest}
-                  onEdit={openEditDialog}
-                  onDelete={handleDeleteQuest}
-                />
+                <div className="space-y-3">
+                  {mainQuests.map((quest) => (
+                    <QuestCard
+                      key={quest.id}
+                      quest={quest}
+                      onStatusChange={handleCompleteQuest}
+                      onEdit={openEditDialog}
+                      onDelete={handleDeleteQuest}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
-            {mainQuest && <Separator />}
+            {mainQuests.length > 0 && otherQuests.length > 0 && <Separator />}
 
-            {/* 支线任务 */}
+            {/* 其他任务（支线、日常、挑战） */}
             <div>
-              <h2 className="text-2xl font-bold mb-4">支线任务</h2>
-              {sideQuests.length > 0 ? (
+              <h2 className="text-2xl font-bold mb-4">其他任务</h2>
+              {otherQuests.length > 0 ? (
                 <div className="space-y-3">
-                  {sideQuests.map((quest) => (
+                  {otherQuests.map((quest) => (
                     <QuestCard
                       key={quest.id}
                       quest={quest}
@@ -394,7 +405,7 @@ export default function DashboardPage() {
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    暂无支线任务，快速添加或前往任务面板创建新任务吧！
+                    暂无其他任务，快速添加或前往任务面板创建新任务吧！
                   </CardContent>
                 </Card>
               )}

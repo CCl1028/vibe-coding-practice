@@ -102,7 +102,7 @@ export function QuestFormModal({
     setLoading(true)
     try {
       await onSubmit(formData)
-      onOpenChange(false)
+      // 不在这里关闭弹窗，让父组件控制
     } catch (error) {
       console.error("Failed to submit quest:", error)
     } finally {
