@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { AchievementBadge } from "@/components/achievement-badge"
+import { PageWrapper } from "@/components/page-wrapper"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trophy, Lock } from "lucide-react"
@@ -41,7 +42,8 @@ export default function AchievementsPage() {
   const unlockedPercentage = stats.total > 0 ? (stats.unlocked / stats.total) * 100 : 0
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-6">
+    <PageWrapper>
+      <div className="container mx-auto p-6 max-w-7xl space-y-6">
       {/* 头部统计 */}
       <Card>
         <CardHeader>
@@ -140,6 +142,7 @@ export default function AchievementsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

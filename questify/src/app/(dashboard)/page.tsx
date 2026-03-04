@@ -10,6 +10,8 @@ import { RewardModal } from "@/components/reward-modal"
 import { LevelUpModal } from "@/components/level-up-modal"
 import { AchievementNotification } from "@/components/achievement-notification"
 import { DailyStatsCards } from "@/components/daily-stats-cards"
+import { PageWrapper } from "@/components/page-wrapper"
+import { DashboardSkeleton } from "@/components/loading-skeletons"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { CheckCircle2, Coins, Star, Zap } from "lucide-react"
@@ -292,156 +294,142 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <div className="text-center py-12">加载中...</div>
+    return (
+      <PageWrapper>
+        <DashboardSkeleton />
+      </PageWrapper>
+    )
   }
 
   if (!character) {
-    return <div className="text-center py-12">角色数据加载失败</div>
+    return (
+      <PageWrapper>
+        <div className="text-center py-12">角色数据加载失败</div>
+      </PageWrapper>
+    )
   }
 
   const mainQuest = quests.find((q) => q.type === "MAIN" && q.status !== "DONE")
   const sideQuests = quests.filter((q) => q.type !== "MAIN")
-  const completedToday = quests.filter((q) => q.status === "DONE").length
-  const todayExp = quests
-    .filter((q) => q.status === "DONE")
-    .reduce((sum, q) => sum + q.expReward, 0)
-  const todayGold = quests
-    .filter((q) => q.status === "DONE")
-    .reduce((sum, q) => sum + q.goldReward, 0)
 
   return (
-    <div className="space-y-6">
-      {/* 快速添加任务 */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
-        <QuickAddQuest onAdd={handleQuickAdd} />
-      </div>
+    <PageWrapper>
+      <div className="space-y-6">
+        {/* 今日统计卡片 */}
+        <DailyStatsCards
+          completedQuests={todayStats.completedQuests}
+          totalExp={todayStats.totalExp}
+          totalGold={todayStats.totalGold}
+          mainQuestCompleted={todayStats.mainQuestCompleted}
+        />
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* 角色卡 */}
-        <div className="lg:col-span-1">
-          <CharacterCard character={character} />
+        {/* 快速添加任务 */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <QuickAddQuest onAdd={handleQuickAdd} />
         </div>
 
-        {/* 今日成长统计 */}
-        <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            icon={<CheckCircle2 className="w-5 h-5" />}
-            label="已完成"
-            value={completedToday}
-            color="text-green-400"
-          />
-          <StatCard
-            icon={<Star className="w-5 h-5" />}
-            label="今日 EXP"
-            value={`+${todayExp}`}
-            color="text-blue-400"
-          />
-          <StatCard
-            icon={<Coins className="w-5 h-5" />}
-            label="今日金币"
-            value={`+${todayGold}`}
-            color="text-yellow-400"
-          />
-          <StatCard
-            icon={<Zap className="w-5 h-5" />}
-            label="连续天数"
-            value="1"
-            color="text-purple-400"
-          />
-        </div>
-      </div>
-
-      {/* 主线任务 */}
-      {mainQuest && (
-        <div>
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-            <Star className="w-6 h-6 text-yellow-400" />
-            今日主线
-          </h2>
-          <QuestCard
-            quest={mainQuest}
-            onStatusChange={handleCompleteQuest}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteQuest}
-          />
-        </div>
-      )}
-
-      <Separator />
-
-      {/* 支线任务 */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">支线任务</h2>
-        {sideQuests.length > 0 ? (
-          <div className="space-y-3">
-            {sideQuests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                onStatusChange={handleCompleteQuest}
-                onEdit={openEditDialog}
-                onDelete={handleDeleteQuest}
-              />
-            ))}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* 角色卡 */}
+          <div className="lg:col-span-1">
+            <CharacterCard character={character} />
           </div>
-        ) : (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              暂无支线任务，前往任务面板创建新任务吧！
-            </CardContent>
-          </Card>
+
+          {/* 任务列表 */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 主线任务 */}
+            {mainQuest && (
+              <div>
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                  <Star className="w-6 h-6 text-yellow-400" />
+                  今日主线
+                </h2>
+                <QuestCard
+                  quest={mainQuest}
+                  onStatusChange={handleCompleteQuest}
+                  onEdit={openEditDialog}
+                  onDelete={handleDeleteQuest}
+                />
+              </div>
+            )}
+
+            {mainQuest && <Separator />}
+
+            {/* 支线任务 */}
+            <div>
+              <h2 className="text-2xl font-bold mb-4">支线任务</h2>
+              {sideQuests.length > 0 ? (
+                <div className="space-y-3">
+                  {sideQuests.map((quest) => (
+                    <QuestCard
+                      key={quest.id}
+                      quest={quest}
+                      onStatusChange={handleCompleteQuest}
+                      onEdit={openEditDialog}
+                      onDelete={handleDeleteQuest}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    暂无支线任务，快速添加或前往任务面板创建新任务吧！
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 任务表单弹窗 */}
+        <QuestFormModal
+          open={questFormOpen}
+          onOpenChange={(open) => {
+            setQuestFormOpen(open)
+            if (!open) setEditingQuest(null)
+          }}
+          onSubmit={editingQuest ? handleEditQuest : handleCreateQuest}
+          initialData={editingQuest}
+          mode={editingQuest ? "edit" : "create"}
+        />
+
+        {/* 删除确认对话框 */}
+        <ConfirmDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+          onConfirm={() => confirmDelete()}
+          title="删除主线任务"
+          description="删除主线任务会影响今日成长，确定要删除吗？"
+          confirmText="确认删除"
+          variant="destructive"
+        />
+
+        {/* 奖励结算弹窗 */}
+        {completedQuest && (
+          <RewardModal
+            isOpen={rewardModalOpen}
+            onClose={handleRewardModalClose}
+            quest={completedQuest}
+            isMainQuest={completedQuest.type === "MAIN"}
+          />
         )}
+
+        {/* 升级弹窗 */}
+        {levelUpData && (
+          <LevelUpModal
+            isOpen={levelUpModalOpen}
+            onClose={handleLevelUpModalClose}
+            oldLevel={levelUpData.oldLevel}
+            newLevel={levelUpData.newLevel}
+            newTitle={levelUpData.newTitle}
+          />
+        )}
+        
+        {/* 成就解锁通知 */}
+        <AchievementNotification
+          achievement={achievementNotification}
+          onClose={() => setAchievementNotification(null)}
+        />
       </div>
-
-      {/* 任务表单弹窗 */}
-      <QuestFormModal
-        open={questFormOpen}
-        onOpenChange={(open) => {
-          setQuestFormOpen(open)
-          if (!open) setEditingQuest(null)
-        }}
-        onSubmit={editingQuest ? handleEditQuest : handleCreateQuest}
-        initialData={editingQuest}
-        mode={editingQuest ? "edit" : "create"}
-      />
-
-      {/* 删除确认对话框 */}
-      <ConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        onConfirm={() => confirmDelete()}
-        title="删除主线任务"
-        description="删除主线任务会影响今日成长，确定要删除吗？"
-        confirmText="确认删除"
-        variant="destructive"
-      />
-
-      {/* 奖励结算弹窗 */}
-      {completedQuest && (
-        <RewardModal
-          isOpen={rewardModalOpen}
-          onClose={handleRewardModalClose}
-          quest={completedQuest}
-          isMainQuest={completedQuest.type === "MAIN"}
-        />
-      )}
-
-      {/* 升级弹窗 */}
-      {levelUpData && (
-        <LevelUpModal
-          isOpen={levelUpModalOpen}
-          onClose={handleLevelUpModalClose}
-          oldLevel={levelUpData.oldLevel}
-          newLevel={levelUpData.newLevel}
-          newTitle={levelUpData.newTitle}
-        />
-      )}
-      
-      {/* 成就解锁通知 */}
-      <AchievementNotification
-        achievement={achievementNotification}
-        onClose={() => setAchievementNotification(null)}
-      />
-    </div>
+    </PageWrapper>
   )
 }

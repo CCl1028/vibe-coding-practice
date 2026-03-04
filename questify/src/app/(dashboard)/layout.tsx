@@ -23,25 +23,28 @@ export default function DashboardLayout({
       {/* 导航栏 */}
       <nav className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center gap-8">
-            <div className="font-bold text-xl">Questify</div>
-            <div className="flex gap-6">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
-                    pathname === link.href
-                      ? "text-primary"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  <link.icon className="w-4 h-4" />
-                  {link.label}
-                </Link>
-              ))}
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-8">
+              <div className="font-bold text-xl">Questify</div>
+              <div className="flex gap-6">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={cn(
+                      "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
+                      pathname === link.href
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <link.icon className="w-4 h-4" />
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </nav>

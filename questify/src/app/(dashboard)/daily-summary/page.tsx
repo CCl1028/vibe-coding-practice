@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import { PageWrapper } from "@/components/page-wrapper"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -40,7 +41,8 @@ export default function DailySummaryPage() {
   const hasMainQuest = todayReward.mainQuestCompleted
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl space-y-6">
+    <PageWrapper>
+      <div className="container mx-auto p-6 max-w-4xl space-y-6">
       {/* 头部 */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -236,7 +238,8 @@ export default function DailySummaryPage() {
           查看成就
         </Button>
       </motion.div>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }
 

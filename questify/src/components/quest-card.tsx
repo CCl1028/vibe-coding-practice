@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,16 +55,16 @@ const DIFFICULTY_COLORS = {
   HARD: "bg-red-500/20 text-red-400",
 }
 
-export function QuestCard({ quest, onComplete, onDelete }: QuestCardProps) {
+const QuestCardComponent = ({ quest, onStatusChange, onEdit, onDelete }: QuestCardProps) => {
   const isCompleted = quest.status === "DONE"
   const isMain = quest.type === "MAIN"
 
   return (
     <Card
-      className={`transition-all ${
+      className={`transition-all hover:shadow-lg ${
         isMain
           ? "border-yellow-500/40 bg-gradient-to-br from-yellow-900/10 to-transparent"
-          : "border-slate-700"
+          : ""
       } ${isCompleted ? "opacity-60" : ""}`}
     >
       <CardContent className="p-4">
@@ -71,12 +72,17 @@ export function QuestCard({ quest, onComplete, onDelete }: QuestCardProps) {
           <div className="flex-1 space-y-2">
             {/* 标题 */}
             <div className="flex items-start gap-2">
-              {isCompleted ? (
-                <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-              ) : (
-                <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-              )}
-              <h3 className={`font-semibold ${isCompleted ? "line-through" : ""}`}>
+              <button
+                onClick={() => onStatusChange?.(quest.id, isCompleted ? "IN_PROGRESS" : "DONE")}
+                className="cursor-pointer"
+              >
+                {isCompleted ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <Circle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5 hover:text-green-400 transition-colors" />
+                )}
+              </button>
+              <h3 className={`font-semibold ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
                 {quest.title}
               </h3>
             </div>
@@ -137,3 +143,12 @@ export function QuestCard({ quest, onComplete, onDelete }: QuestCardProps) {
     </Card>
   )
 }
+
+// 使用 memo 优化，仅在 quest.id 或 quest.status 改变时重新渲染
+export const QuestCard = memo(QuestCardComponent, (prev, next) => {
+  return (
+    prev.quest.id === next.quest.id &&
+    prev.quest.status === next.quest.status &&
+    prev.quest.title === next.quest.title
+  )
+})
