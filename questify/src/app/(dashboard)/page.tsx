@@ -8,13 +8,17 @@ import { QuestFormModal, QuestFormData } from "@/components/quest-form-modal"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { RewardModal } from "@/components/reward-modal"
 import { LevelUpModal } from "@/components/level-up-modal"
+import { AchievementNotification } from "@/components/achievement-notification"
+import { DailyStatsCards } from "@/components/daily-stats-cards"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { CheckCircle2, Coins, Star, Zap } from "lucide-react"
-import { Character, Quest } from "@/types"
+import { Character, Quest, Achievement } from "@/types"
 import { QuestStatus } from "@prisma/client"
 import { calculateLevel, getTitleForLevel, calculateRewards, getExpForNextLevel } from "@/lib/rewards"
-import { updateTodayReward } from "@/lib/daily-rewards"
+import { updateTodayReward, getTodayReward } from "@/lib/daily-rewards"
+import { updatePlayerStatsOnQuestComplete } from "@/lib/player-stats"
+import { checkAndUnlockAchievements } from "@/lib/achievements"
 
 export default function DashboardPage() {
   const [character, setCharacter] = useState<Character | null>(null)
@@ -110,6 +114,24 @@ export default function DashboardPage() {
           },
           isMainQuest: quest.type === "MAIN",
         })
+        
+        // 更新玩家统计
+        updatePlayerStatsOnQuestComplete({
+          type: quest.type,
+          tag: quest.tag,
+          expReward: quest.expReward,
+          goldReward: quest.goldReward,
+        })
+        
+        // 检查并解锁成就
+        const newlyUnlocked = checkAndUnlockAchievements()
+        if (newlyUnlocked.length > 0) {
+          // 显示第一个新解锁的成就通知
+          setAchievementNotification(newlyUnlocked[0])
+        }
+        
+        // 更新今日统计
+        loadTodayStats()
 
         // 检查是否升级
         const oldLevel = character.level
@@ -414,32 +436,12 @@ export default function DashboardPage() {
           newTitle={levelUpData.newTitle}
         />
       )}
+      
+      {/* 成就解锁通知 */}
+      <AchievementNotification
+        achievement={achievementNotification}
+        onClose={() => setAchievementNotification(null)}
+      />
     </div>
-  )
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string | number
-  color: string
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className={color}>{icon}</div>
-          <div className="text-right">
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            <div className="text-xs text-muted-foreground">{label}</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }
