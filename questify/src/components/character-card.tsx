@@ -109,10 +109,25 @@ function StatItem({
   return (
     <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/50">
       <div className="flex items-center gap-2">
-        <div className={color}>{icon}</div>
+        <motion.div
+          key={`${label}-${value}`}
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 0.3 }}
+          className={color}
+        >
+          {icon}
+        </motion.div>
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
-      <span className={`font-bold ${color}`}>{value}</span>
+      <motion.span
+        key={value}
+        initial={{ scale: 1.5, opacity: 0.5 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className={`font-bold ${color}`}
+      >
+        {value}
+      </motion.span>
     </div>
   )
 }
