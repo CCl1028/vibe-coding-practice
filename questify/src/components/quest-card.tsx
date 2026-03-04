@@ -3,8 +3,9 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Coins, Star, CheckCircle2, Circle, Trash2 } from "lucide-react"
+import { Coins, Star, CheckCircle2, Circle, Trash2, Edit, PlayCircle } from "lucide-react"
 import { Quest } from "@/types"
+import { QuestStatus } from "@prisma/client"
 
 interface QuestCardProps {
   quest: Quest & {
@@ -15,7 +16,8 @@ interface QuestCardProps {
     focReward: number
     vitReward: number
   }
-  onComplete?: (id: string) => void
+  onStatusChange?: (id: string, status: QuestStatus) => void
+  onEdit?: (id: string) => void
   onDelete?: (id: string) => void
 }
 
@@ -111,13 +113,13 @@ export function QuestCard({ quest, onComplete, onDelete }: QuestCardProps) {
 
           {/* 操作按钮 */}
           <div className="flex flex-col gap-2">
-            {!isCompleted && onComplete && (
+            {!isCompleted && onEdit && (
               <Button
                 size="sm"
-                onClick={() => onComplete(quest.id)}
-                className="bg-green-600 hover:bg-green-700"
+                variant="outline"
+                onClick={() => onEdit(quest.id)}
               >
-                完成
+                <Edit className="w-4 h-4" />
               </Button>
             )}
             {onDelete && (

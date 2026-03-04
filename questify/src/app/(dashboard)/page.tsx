@@ -115,6 +115,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* 快速添加任务 */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+        <QuickAddQuest onAdd={handleQuickAdd} />
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* 角色卡 */}
         <div className="lg:col-span-1">
