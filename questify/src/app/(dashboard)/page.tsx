@@ -62,9 +62,9 @@ export default function DashboardPage() {
   const loadTodayStats = () => {
     const reward = getTodayReward()
     setTodayStats({
-      completedQuests: reward.questsCompleted,
-      totalExp: reward.exp,
-      totalGold: reward.gold,
+      completedQuests: reward.completedQuests,
+      totalExp: reward.totalExp,
+      totalGold: reward.totalGold,
       mainQuestCompleted: reward.mainQuestCompleted,
     })
   }
