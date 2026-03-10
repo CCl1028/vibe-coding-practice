@@ -1,6 +1,6 @@
 /**
  * 🏠 Tab 导航布局
- * 底部 Tab 栏
+ * 底部 3 个 Tab：任务、成就、我的
  */
 
 import { Tabs } from 'expo-router';
@@ -23,41 +23,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '首页',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconActive]}>
-              <Ionicons
-                name={focused ? 'home' : 'home-outline'}
-                size={24}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="quests"
-        options={{
           title: '任务',
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconActive]}>
               <Ionicons
                 name={focused ? 'list' : 'list-outline'}
-                size={24}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="character"
-        options={{
-          title: '角色',
-          tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconActive]}>
-              <Ionicons
-                name={focused ? 'person' : 'person-outline'}
                 size={24}
                 color={color}
               />
@@ -73,6 +43,21 @@ export default function TabLayout() {
             <View style={[styles.iconContainer, focused && styles.iconActive]}>
               <Ionicons
                 name={focused ? 'trophy' : 'trophy-outline'}
+                size={24}
+                color={color}
+              />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="character"
+        options={{
+          title: '我的',
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.iconActive]}>
+              <Ionicons
+                name={focused ? 'person' : 'person-outline'}
                 size={24}
                 color={color}
               />
