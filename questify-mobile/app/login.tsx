@@ -1,6 +1,6 @@
 /**
  * 🔐 登录页面
- * 可爱风格设计
+ * 可爱风格设计 + Supabase 认证
  */
 
 import React, { useState } from 'react';
@@ -12,6 +12,8 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -26,10 +28,16 @@ import Animated, {
 import { router } from 'expo-router';
 import { Button } from '../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../src/theme';
+import { useAuth } from '../src/lib/auth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const { signIn, signUp } = useAuth();
 
   // 装饰动画
   const float = useSharedValue(0);
@@ -49,9 +57,47 @@ export default function LoginScreen() {
     transform: [{ translateY: float.value }],
   }));
 
-  const handleLogin = () => {
-    // TODO: 实际登录逻辑
-    router.replace('/(tabs)');
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      Alert.alert('提示', '请填写邮箱和密码');
+      return;
+    }
+
+    if (isSignUp && !name) {
+      Alert.alert('提示', '请填写角色名称');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(email, password, name);
+        if (error) {
+          Alert.alert('注册失败', error.message);
+        } else {
+          Alert.alert('注册成功', '请检查邮箱完成验证，然后登录', [
+            { text: '好的', onPress: () => setIsSignUp(false) },
+          ]);
+        }
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          Alert.alert('登录失败', error.message);
+        } else {
+          router.replace('/(tabs)');
+        }
+      }
+    } catch (e) {
+      Alert.alert('错误', '网络连接失败，请重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setName('');
   };
 
   return (
@@ -84,6 +130,20 @@ export default function LoginScreen() {
           entering={FadeInUp.delay(400).duration(600)}
           style={styles.formSection}
         >
+          {isSignUp && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>🦸 角色名称</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="给你的角色起个名字"
+                placeholderTextColor={colors.text.muted}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="none"
+              />
+            </View>
+          )}
+
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>📧 邮箱</Text>
             <TextInput
@@ -101,7 +161,7 @@ export default function LoginScreen() {
             <Text style={styles.inputLabel}>🔑 密码</Text>
             <TextInput
               style={styles.input}
-              placeholder="请输入密码"
+              placeholder="请输入密码（至少6位）"
               placeholderTextColor={colors.text.muted}
               value={password}
               onChangeText={setPassword}
@@ -109,8 +169,20 @@ export default function LoginScreen() {
             />
           </View>
 
-          <Button variant="primary" size="lg" fullWidth onPress={handleLogin}>
-            开始冒险 🚀
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : isSignUp ? (
+              '创建角色 ✨'
+            ) : (
+              '开始冒险 🚀'
+            )}
           </Button>
 
           <View style={styles.divider}>
@@ -119,17 +191,13 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 第三方登录 */}
-          <View style={styles.socialButtons}>
-            <Pressable style={styles.socialButton}>
-              <Text style={styles.socialIcon}>🍎</Text>
-              <Text style={styles.socialText}>Apple 登录</Text>
-            </Pressable>
-            <Pressable style={styles.socialButton}>
-              <Text style={styles.socialIcon}>📱</Text>
-              <Text style={styles.socialText}>Google 登录</Text>
-            </Pressable>
-          </View>
+          {/* 跳过登录（开发模式） */}
+          <Pressable
+            style={styles.skipButton}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <Text style={styles.skipText}>👻 游客模式（跳过登录）</Text>
+          </Pressable>
         </Animated.View>
 
         {/* 底部 */}
@@ -137,10 +205,14 @@ export default function LoginScreen() {
           entering={FadeInUp.delay(600).duration(600)}
           style={styles.footer}
         >
-          <Text style={styles.footerText}>
-            还没有账号？
-            <Text style={styles.footerLink}> 立即注册</Text>
-          </Text>
+          <Pressable onPress={toggleMode}>
+            <Text style={styles.footerText}>
+              {isSignUp ? '已有账号？' : '还没有账号？'}
+              <Text style={styles.footerLink}>
+                {isSignUp ? ' 立即登录' : ' 立即注册'}
+              </Text>
+            </Text>
+          </Pressable>
         </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -170,8 +242,8 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginTop: spacing.xxl,
-    marginBottom: spacing.xxl,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
   },
   logoContainer: {
     width: 100,
@@ -236,27 +308,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text.muted,
   },
-  socialButtons: {
-    gap: spacing.md,
-  },
-  socialButton: {
-    flexDirection: 'row',
+  skipButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.background.secondary,
     padding: spacing.md,
+    backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.gray[200],
   },
-  socialIcon: {
-    fontSize: 20,
-  },
-  socialText: {
+  skipText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.medium,
-    color: colors.text.primary,
+    color: colors.text.secondary,
   },
   footer: {
     alignItems: 'center',

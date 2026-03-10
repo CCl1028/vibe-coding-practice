@@ -3,7 +3,7 @@
  * 显示角色信息和今日任务
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,102 +12,109 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 import { CharacterCard, QuestCard, Button } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Character, Quest, QuestStatus } from '../../src/types';
+import { useAuth } from '../../src/lib/auth';
+import { characterService, questService } from '../../src/lib/services';
 
-// 模拟数据（实际项目中从 API 获取）
-const MOCK_CHARACTER: Character = {
+// 默认角色（游客模式）
+const DEFAULT_CHARACTER: Character = {
   id: '1',
-  name: '勇敢小骑士',
+  name: '游客冒险者',
   avatar: 'default',
-  level: 5,
-  exp: 320,
-  gold: 1250,
-  title: '稳定推进者',
+  level: 1,
+  exp: 0,
+  gold: 100,
+  title: '新手冒险者',
   stats: {
-    strength: 8,
-    intelligence: 12,
-    focus: 10,
-    vitality: 6,
+    strength: 5,
+    intelligence: 5,
+    focus: 5,
+    vitality: 5,
   },
 };
 
-const MOCK_QUESTS: Quest[] = [
-  {
-    id: '1',
-    title: '完成 React Native 学习',
-    description: '学习 Expo 和基础组件',
-    type: 'MAIN',
-    difficulty: 'MEDIUM',
-    tag: 'STUDY',
-    status: 'TODO',
-    expReward: 70,
-    goldReward: 15,
-    strReward: 0,
-    intReward: 1,
-    focReward: 0,
-    vitReward: 0,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-  {
-    id: '2',
-    title: '晨跑 30 分钟',
-    type: 'DAILY',
-    difficulty: 'EASY',
-    tag: 'HEALTH',
-    status: 'DONE',
-    expReward: 20,
-    goldReward: 5,
-    strReward: 0,
-    intReward: 0,
-    focReward: 0,
-    vitReward: 1,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-  {
-    id: '3',
-    title: '阅读技术文章 3 篇',
-    type: 'SIDE',
-    difficulty: 'EASY',
-    tag: 'STUDY',
-    status: 'TODO',
-    expReward: 20,
-    goldReward: 5,
-    strReward: 0,
-    intReward: 1,
-    focReward: 0,
-    vitReward: 0,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-];
-
 export default function HomeScreen() {
-  const [character, setCharacter] = useState<Character>(MOCK_CHARACTER);
-  const [quests, setQuests] = useState<Quest[]>(MOCK_QUESTS);
+  const { user } = useAuth();
+  const [character, setCharacter] = useState<Character>(DEFAULT_CHARACTER);
+  const [quests, setQuests] = useState<Quest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // 加载数据
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const [charData, questData] = await Promise.all([
+        characterService.get(user.id),
+        questService.getAll(user.id, { isToday: true }),
+      ]);
+
+      if (charData) {
+        setCharacter(charData);
+      }
+      setQuests(questData);
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // 页面聚焦时刷新数据
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: 实际从 API 刷新数据
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadData();
     setRefreshing(false);
   };
 
-  const handleStatusChange = (id: string, status: QuestStatus) => {
+  const handleStatusChange = async (id: string, status: QuestStatus) => {
+    // 先乐观更新 UI
     setQuests((prev) =>
       prev.map((q) => (q.id === id ? { ...q, status } : q))
     );
-    // TODO: 调用 API 更新状态
+
+    if (user) {
+      // 更新数据库
+      const quest = quests.find((q) => q.id === id);
+      await questService.updateStatus(id, status);
+
+      // 如果完成任务，增加奖励
+      if (status === 'DONE' && quest) {
+        const updatedChar = await characterService.addRewards(user.id, {
+          exp: quest.expReward,
+          gold: quest.goldReward,
+          str: quest.strReward,
+          int: quest.intReward,
+          foc: quest.focReward,
+          vit: quest.vitReward,
+        });
+        if (updatedChar) {
+          setCharacter(updatedChar);
+        }
+      }
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     setQuests((prev) => prev.filter((q) => q.id !== id));
-    // TODO: 调用 API 删除
+
+    if (user) {
+      await questService.delete(id);
+    }
   };
 
   // 获取当前时间的问候语
@@ -123,6 +130,7 @@ export default function HomeScreen() {
   const mainQuests = quests.filter((q) => q.type === 'MAIN');
   const otherQuests = quests.filter((q) => q.type !== 'MAIN');
   const completedCount = quests.filter((q) => q.status === 'DONE').length;
+  const totalCount = quests.length || 1; // 防止除以 0
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -144,6 +152,13 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>冒险者 {character.name}！</Text>
         </View>
 
+        {/* 未登录提示 */}
+        {!user && (
+          <View style={styles.guestBanner}>
+            <Text style={styles.guestText}>👻 当前为游客模式，数据不会保存</Text>
+          </View>
+        )}
+
         {/* 今日进度 */}
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
@@ -163,7 +178,7 @@ export default function HomeScreen() {
             <View style={styles.progressDivider} />
             <View style={styles.progressItem}>
               <Text style={styles.progressValue}>
-                {Math.round((completedCount / quests.length) * 100)}%
+                {Math.round((completedCount / totalCount) * 100)}%
               </Text>
               <Text style={styles.progressLabel}>完成率</Text>
             </View>
@@ -245,6 +260,17 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
+  },
+  guestBanner: {
+    backgroundColor: colors.cream[100],
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+  },
+  guestText: {
+    fontSize: fontSize.sm,
+    color: colors.cream[700],
+    textAlign: 'center',
   },
   progressCard: {
     backgroundColor: colors.background.secondary,

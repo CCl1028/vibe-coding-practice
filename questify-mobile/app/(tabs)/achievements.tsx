@@ -3,30 +3,34 @@
  * 展示所有成就和解锁状态
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Achievement } from '../../src/types';
+import { useAuth } from '../../src/lib/auth';
+import { achievementService } from '../../src/lib/services';
 
-const MOCK_ACHIEVEMENTS: Achievement[] = [
+// 默认成就列表（游客模式）
+const DEFAULT_ACHIEVEMENTS: Achievement[] = [
   {
     id: '1',
     key: 'first_quest',
     title: '初次冒险',
     description: '完成你的第一个任务',
     icon: '🎯',
-    progress: 1,
+    progress: 0,
     target: 1,
-    unlocked: true,
-    unlockedAt: '2024-01-15',
+    unlocked: false,
   },
   {
     id: '2',
@@ -34,10 +38,9 @@ const MOCK_ACHIEVEMENTS: Achievement[] = [
     title: '任务新手',
     description: '累计完成 10 个任务',
     icon: '⭐',
-    progress: 10,
+    progress: 0,
     target: 10,
-    unlocked: true,
-    unlockedAt: '2024-01-20',
+    unlocked: false,
   },
   {
     id: '3',
@@ -45,7 +48,7 @@ const MOCK_ACHIEVEMENTS: Achievement[] = [
     title: '任务达人',
     description: '累计完成 50 个任务',
     icon: '🌟',
-    progress: 42,
+    progress: 0,
     target: 50,
     unlocked: false,
   },
@@ -55,10 +58,9 @@ const MOCK_ACHIEVEMENTS: Achievement[] = [
     title: '一周坚持',
     description: '连续 7 天完成任务',
     icon: '🔥',
-    progress: 7,
+    progress: 0,
     target: 7,
-    unlocked: true,
-    unlockedAt: '2024-02-01',
+    unlocked: false,
   },
   {
     id: '5',
@@ -66,71 +68,60 @@ const MOCK_ACHIEVEMENTS: Achievement[] = [
     title: '月度之星',
     description: '连续 30 天完成任务',
     icon: '💫',
-    progress: 7,
+    progress: 0,
     target: 30,
     unlocked: false,
   },
   {
     id: '6',
-    key: 'early_bird',
-    title: '早起鸟儿',
-    description: '在早上 6 点前完成任务',
-    icon: '🌅',
-    progress: 0,
-    target: 1,
-    unlocked: false,
-  },
-  {
-    id: '7',
     key: 'gold_collector',
     title: '小富翁',
     description: '累计获得 1000 金币',
     icon: '💰',
-    progress: 1250,
+    progress: 0,
     target: 1000,
-    unlocked: true,
-    unlockedAt: '2024-01-25',
-  },
-  {
-    id: '8',
-    key: 'level_5',
-    title: '初露锋芒',
-    description: '达到 5 级',
-    icon: '🏅',
-    progress: 5,
-    target: 5,
-    unlocked: true,
-    unlockedAt: '2024-02-05',
-  },
-  {
-    id: '9',
-    key: 'level_10',
-    title: '渐入佳境',
-    description: '达到 10 级',
-    icon: '🎖️',
-    progress: 5,
-    target: 10,
-    unlocked: false,
-  },
-  {
-    id: '10',
-    key: 'main_quest_master',
-    title: '主线猎人',
-    description: '完成 10 个主线任务',
-    icon: '👑',
-    progress: 8,
-    target: 10,
     unlocked: false,
   },
 ];
 
 export default function AchievementsScreen() {
+  const { user } = useAuth();
+  const [achievements, setAchievements] = useState<Achievement[]>(DEFAULT_ACHIEVEMENTS);
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const unlockedCount = MOCK_ACHIEVEMENTS.filter((a) => a.unlocked).length;
-  const totalCount = MOCK_ACHIEVEMENTS.length;
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setAchievements(DEFAULT_ACHIEVEMENTS);
+      return;
+    }
 
-  const filteredAchievements = MOCK_ACHIEVEMENTS.filter((a) => {
+    try {
+      const data = await achievementService.getAll(user.id);
+      if (data.length > 0) {
+        setAchievements(data);
+      }
+    } catch (error) {
+      console.error('加载成就失败:', error);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const totalCount = achievements.length;
+
+  const filteredAchievements = achievements.filter((a) => {
     if (filter === 'unlocked') return a.unlocked;
     if (filter === 'locked') return !a.unlocked;
     return true;
@@ -142,6 +133,13 @@ export default function AchievementsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary[500]}
+          />
+        }
       >
         {/* 头部 */}
         <View>
@@ -155,13 +153,15 @@ export default function AchievementsScreen() {
         <View style={styles.progressCard}>
           <View style={styles.progressCircle}>
             <Text style={styles.progressPercent}>
-              {Math.round((unlockedCount / totalCount) * 100)}%
+              {totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0}%
             </Text>
           </View>
           <View style={styles.progressInfo}>
             <Text style={styles.progressTitle}>收集进度</Text>
             <Text style={styles.progressDesc}>
-              继续加油！还有 {totalCount - unlockedCount} 个成就等你解锁
+              {unlockedCount === totalCount
+                ? '🎉 恭喜！你已解锁所有成就！'
+                : `继续加油！还有 ${totalCount - unlockedCount} 个成就等你解锁`}
             </Text>
           </View>
         </View>
@@ -191,6 +191,13 @@ export default function AchievementsScreen() {
             <AchievementCard key={achievement.id} achievement={achievement} />
           ))}
         </View>
+
+        {filteredAchievements.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={styles.emptyText}>暂无成就</Text>
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -453,6 +460,19 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontWeight: fontWeight.bold,
     fontSize: 14,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: spacing.xxxl,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: spacing.lg,
+  },
+  emptyText: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
   },
   bottomSpacer: {
     height: spacing.xxl,

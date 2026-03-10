@@ -3,89 +3,27 @@
  * 管理所有任务
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 import { Ionicons } from '@expo/vector-icons';
 import { QuestCard, Button } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
-import { Quest, QuestStatus, QuestType } from '../../src/types';
-
-// 模拟数据
-const MOCK_ALL_QUESTS: Quest[] = [
-  {
-    id: '1',
-    title: '完成 React Native 学习',
-    description: '学习 Expo 和基础组件',
-    type: 'MAIN',
-    difficulty: 'MEDIUM',
-    tag: 'STUDY',
-    status: 'TODO',
-    expReward: 70,
-    goldReward: 15,
-    strReward: 0,
-    intReward: 1,
-    focReward: 0,
-    vitReward: 0,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-  {
-    id: '2',
-    title: '晨跑 30 分钟',
-    type: 'DAILY',
-    difficulty: 'EASY',
-    tag: 'HEALTH',
-    status: 'DONE',
-    expReward: 20,
-    goldReward: 5,
-    strReward: 0,
-    intReward: 0,
-    focReward: 0,
-    vitReward: 1,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-  {
-    id: '3',
-    title: '阅读技术文章 3 篇',
-    type: 'SIDE',
-    difficulty: 'EASY',
-    tag: 'STUDY',
-    status: 'TODO',
-    expReward: 20,
-    goldReward: 5,
-    strReward: 0,
-    intReward: 1,
-    focReward: 0,
-    vitReward: 0,
-    createdAt: new Date().toISOString(),
-    isToday: true,
-  },
-  {
-    id: '4',
-    title: '完成项目重构',
-    type: 'CHALLENGE',
-    difficulty: 'HARD',
-    tag: 'WORK',
-    status: 'TODO',
-    expReward: 130,
-    goldReward: 30,
-    strReward: 0,
-    intReward: 0,
-    focReward: 1,
-    vitReward: 0,
-    createdAt: new Date().toISOString(),
-    isToday: false,
-  },
-];
+import { Quest, QuestStatus, QuestType, Difficulty, QuestTag } from '../../src/types';
+import { useAuth } from '../../src/lib/auth';
+import { questService, characterService } from '../../src/lib/services';
+import { calculateRewards } from '../../src/lib/rewards';
 
 type FilterType = 'ALL' | QuestType;
 
@@ -97,18 +35,138 @@ const FILTERS: { key: FilterType; label: string; emoji: string }[] = [
   { key: 'CHALLENGE', label: '挑战', emoji: '⚔️' },
 ];
 
-export default function QuestsScreen() {
-  const [quests, setQuests] = useState<Quest[]>(MOCK_ALL_QUESTS);
-  const [filter, setFilter] = useState<FilterType>('ALL');
+const QUEST_TYPES: { key: QuestType; label: string; emoji: string }[] = [
+  { key: 'MAIN', label: '主线', emoji: '⭐' },
+  { key: 'SIDE', label: '支线', emoji: '📌' },
+  { key: 'DAILY', label: '日常', emoji: '🔄' },
+  { key: 'CHALLENGE', label: '挑战', emoji: '⚔️' },
+];
 
-  const handleStatusChange = (id: string, status: QuestStatus) => {
+const DIFFICULTIES: { key: Difficulty; label: string }[] = [
+  { key: 'EASY', label: '简单' },
+  { key: 'MEDIUM', label: '中等' },
+  { key: 'HARD', label: '困难' },
+];
+
+const TAGS: { key: QuestTag; label: string; emoji: string }[] = [
+  { key: 'STUDY', label: '学习', emoji: '📚' },
+  { key: 'WORK', label: '工作', emoji: '💼' },
+  { key: 'HEALTH', label: '健康', emoji: '🏃' },
+  { key: 'LIFE', label: '生活', emoji: '🏠' },
+];
+
+export default function QuestsScreen() {
+  const { user } = useAuth();
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [filter, setFilter] = useState<FilterType>('ALL');
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+
+  // 新任务表单状态
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newType, setNewType] = useState<QuestType>('SIDE');
+  const [newDifficulty, setNewDifficulty] = useState<Difficulty>('MEDIUM');
+  const [newTag, setNewTag] = useState<QuestTag>('WORK');
+
+  // 加载数据
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await questService.getAll(user.id);
+      setQuests(data);
+    } catch (error) {
+      console.error('加载任务失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const handleStatusChange = async (id: string, status: QuestStatus) => {
     setQuests((prev) =>
       prev.map((q) => (q.id === id ? { ...q, status } : q))
     );
+
+    if (user) {
+      const quest = quests.find((q) => q.id === id);
+      await questService.updateStatus(id, status);
+
+      // 如果完成任务，增加奖励
+      if (status === 'DONE' && quest) {
+        await characterService.addRewards(user.id, {
+          exp: quest.expReward,
+          gold: quest.goldReward,
+          str: quest.strReward,
+          int: quest.intReward,
+          foc: quest.focReward,
+          vit: quest.vitReward,
+        });
+      }
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     setQuests((prev) => prev.filter((q) => q.id !== id));
+
+    if (user) {
+      await questService.delete(id);
+    }
+  };
+
+  const handleCreateQuest = async () => {
+    if (!newTitle.trim()) {
+      Alert.alert('提示', '请输入任务名称');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('提示', '请先登录');
+      return;
+    }
+
+    const rewards = calculateRewards(newDifficulty, newType, newTag);
+
+    const newQuest = await questService.create(user.id, {
+      title: newTitle.trim(),
+      description: newDescription.trim() || undefined,
+      type: newType,
+      difficulty: newDifficulty,
+      tag: newTag,
+      status: 'TODO',
+      expReward: rewards.expReward,
+      goldReward: rewards.goldReward,
+      strReward: rewards.statReward.strength,
+      intReward: rewards.statReward.intelligence,
+      focReward: rewards.statReward.focus,
+      vitReward: rewards.statReward.vitality,
+      isToday: true,
+    });
+
+    if (newQuest) {
+      setQuests((prev) => [newQuest, ...prev]);
+      setShowModal(false);
+      resetForm();
+    } else {
+      Alert.alert('错误', '创建任务失败');
+    }
+  };
+
+  const resetForm = () => {
+    setNewTitle('');
+    setNewDescription('');
+    setNewType('SIDE');
+    setNewDifficulty('MEDIUM');
+    setNewTag('WORK');
   };
 
   const filteredQuests =
@@ -212,9 +270,148 @@ export default function QuestsScreen() {
       </ScrollView>
 
       {/* 添加按钮 */}
-      <Pressable style={styles.addButton}>
+      <Pressable style={styles.addButton} onPress={() => setShowModal(true)}>
         <Ionicons name="add" size={32} color={colors.text.inverse} />
       </Pressable>
+
+      {/* 创建任务弹窗 */}
+      <Modal
+        visible={showModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✨ 创建新任务</Text>
+              <Pressable onPress={() => setShowModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* 任务名称 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>任务名称 *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="输入任务名称"
+                  placeholderTextColor={colors.text.muted}
+                  value={newTitle}
+                  onChangeText={setNewTitle}
+                />
+              </View>
+
+              {/* 描述 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>描述（可选）</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="任务详细描述"
+                  placeholderTextColor={colors.text.muted}
+                  value={newDescription}
+                  onChangeText={setNewDescription}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              {/* 任务类型 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>任务类型</Text>
+                <View style={styles.optionRow}>
+                  {QUEST_TYPES.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      style={[
+                        styles.optionButton,
+                        newType === t.key && styles.optionActive,
+                      ]}
+                      onPress={() => setNewType(t.key)}
+                    >
+                      <Text style={styles.optionEmoji}>{t.emoji}</Text>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          newType === t.key && styles.optionTextActive,
+                        ]}
+                      >
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* 难度 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>难度</Text>
+                <View style={styles.optionRow}>
+                  {DIFFICULTIES.map((d) => (
+                    <Pressable
+                      key={d.key}
+                      style={[
+                        styles.optionButton,
+                        styles.optionWide,
+                        newDifficulty === d.key && styles.optionActive,
+                      ]}
+                      onPress={() => setNewDifficulty(d.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          newDifficulty === d.key && styles.optionTextActive,
+                        ]}
+                      >
+                        {d.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* 标签 */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>分类</Text>
+                <View style={styles.optionRow}>
+                  {TAGS.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      style={[
+                        styles.optionButton,
+                        newTag === t.key && styles.optionActive,
+                      ]}
+                      onPress={() => setNewTag(t.key)}
+                    >
+                      <Text style={styles.optionEmoji}>{t.emoji}</Text>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          newTag === t.key && styles.optionTextActive,
+                        ]}
+                      >
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* 提交按钮 */}
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onPress={handleCreateQuest}
+                style={{ marginTop: spacing.lg }}
+              >
+                创建任务 🚀
+              </Button>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -329,5 +526,86 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background.primary,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
+    padding: spacing.lg,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+  },
+  formGroup: {
+    marginBottom: spacing.lg,
+  },
+  formLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+  },
+  input: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+  },
+  optionWide: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  optionActive: {
+    backgroundColor: colors.primary[100],
+    borderColor: colors.primary[500],
+  },
+  optionEmoji: {
+    fontSize: 14,
+  },
+  optionText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  optionTextActive: {
+    color: colors.primary[600],
   },
 });
