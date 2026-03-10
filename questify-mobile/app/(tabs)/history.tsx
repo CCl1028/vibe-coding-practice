@@ -459,10 +459,13 @@ export default function HistoryScreen() {
                 const hasMain = summary?.mainCompleted;
                 
                 // 判断是否是未来日期
-                const dateObj = new Date(date);
+                // 使用 date 字符串解析时需要确保时区一致
+                const [year, month, day] = date.split('-').map(Number);
+                const dateObj = new Date(year, month - 1, day);
+                dateObj.setHours(0, 0, 0, 0);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                const isFuture = dateObj > today;
+                const isFuture = dateObj.getTime() > today.getTime();
 
                 const heatLevelStyles = [
                   styles.heatLevel0,
