@@ -14,59 +14,30 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-import { CharacterCard, QuestCard, Button } from '../../src/components';
+import { CharacterCard, QuestCard } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Character, Quest, QuestStatus } from '../../src/types';
-import { useAuth } from '../../src/lib/auth';
-import { characterService, questService } from '../../src/lib/services';
-
-// 默认角色（游客模式）
-const DEFAULT_CHARACTER: Character = {
-  id: '1',
-  name: '游客冒险者',
-  avatar: 'default',
-  level: 1,
-  exp: 0,
-  gold: 100,
-  title: '新手冒险者',
-  stats: {
-    strength: 5,
-    intelligence: 5,
-    focus: 5,
-    vitality: 5,
-  },
-};
+import { localCharacterService, localQuestService } from '../../src/lib/local-storage';
 
 export default function HomeScreen() {
-  const { user } = useAuth();
-  const [character, setCharacter] = useState<Character>(DEFAULT_CHARACTER);
+  const [character, setCharacter] = useState<Character | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  // 加载数据
+  // 加载本地数据
   const loadData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const [charData, questData] = await Promise.all([
-        characterService.get(user.id),
-        questService.getAll(user.id, { isToday: true }),
+        localCharacterService.get(),
+        localQuestService.getAll({ isToday: true }),
       ]);
 
-      if (charData) {
-        setCharacter(charData);
-      }
+      setCharacter(charData);
       setQuests(questData);
     } catch (error) {
       console.error('加载数据失败:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   // 页面聚焦时刷新数据
   useFocusEffect(
@@ -87,34 +58,27 @@ export default function HomeScreen() {
       prev.map((q) => (q.id === id ? { ...q, status } : q))
     );
 
-    if (user) {
-      // 更新数据库
-      const quest = quests.find((q) => q.id === id);
-      await questService.updateStatus(id, status);
+    // 更新本地存储
+    const quest = quests.find((q) => q.id === id);
+    await localQuestService.updateStatus(id, status);
 
-      // 如果完成任务，增加奖励
-      if (status === 'DONE' && quest) {
-        const updatedChar = await characterService.addRewards(user.id, {
-          exp: quest.expReward,
-          gold: quest.goldReward,
-          str: quest.strReward,
-          int: quest.intReward,
-          foc: quest.focReward,
-          vit: quest.vitReward,
-        });
-        if (updatedChar) {
-          setCharacter(updatedChar);
-        }
-      }
+    // 如果完成任务，增加奖励
+    if (status === 'DONE' && quest) {
+      const updatedChar = await localCharacterService.addRewards({
+        exp: quest.expReward,
+        gold: quest.goldReward,
+        str: quest.strReward,
+        int: quest.intReward,
+        foc: quest.focReward,
+        vit: quest.vitReward,
+      });
+      setCharacter(updatedChar);
     }
   };
 
   const handleDelete = async (id: string) => {
     setQuests((prev) => prev.filter((q) => q.id !== id));
-
-    if (user) {
-      await questService.delete(id);
-    }
+    await localQuestService.delete(id);
   };
 
   // 获取当前时间的问候语
@@ -149,15 +113,8 @@ export default function HomeScreen() {
         {/* 问候语 */}
         <View>
           <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.subtitle}>冒险者 {character.name}！</Text>
+          <Text style={styles.subtitle}>冒险者 {character?.name || '加载中...'}！</Text>
         </View>
-
-        {/* 未登录提示 */}
-        {!user && (
-          <View style={styles.guestBanner}>
-            <Text style={styles.guestText}>👻 当前为游客模式，数据不会保存</Text>
-          </View>
-        )}
 
         {/* 今日进度 */}
         <View style={styles.progressCard}>
@@ -186,9 +143,11 @@ export default function HomeScreen() {
         </View>
 
         {/* 角色卡片 */}
-        <View>
-          <CharacterCard character={character} />
-        </View>
+        {character && (
+          <View>
+            <CharacterCard character={character} />
+          </View>
+        )}
 
         {/* 主线任务 */}
         {mainQuests.length > 0 && (
@@ -260,17 +219,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
-  },
-  guestBanner: {
-    backgroundColor: colors.cream[100],
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  guestText: {
-    fontSize: fontSize.sm,
-    color: colors.cream[700],
-    textAlign: 'center',
   },
   progressCard: {
     backgroundColor: colors.background.secondary,

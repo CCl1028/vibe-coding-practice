@@ -17,94 +17,21 @@ import { useFocusEffect } from 'expo-router';
 
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Achievement } from '../../src/types';
-import { useAuth } from '../../src/lib/auth';
-import { achievementService } from '../../src/lib/services';
-
-// 默认成就列表（游客模式）
-const DEFAULT_ACHIEVEMENTS: Achievement[] = [
-  {
-    id: '1',
-    key: 'first_quest',
-    title: '初次冒险',
-    description: '完成你的第一个任务',
-    icon: '🎯',
-    progress: 0,
-    target: 1,
-    unlocked: false,
-  },
-  {
-    id: '2',
-    key: 'quest_master_10',
-    title: '任务新手',
-    description: '累计完成 10 个任务',
-    icon: '⭐',
-    progress: 0,
-    target: 10,
-    unlocked: false,
-  },
-  {
-    id: '3',
-    key: 'quest_master_50',
-    title: '任务达人',
-    description: '累计完成 50 个任务',
-    icon: '🌟',
-    progress: 0,
-    target: 50,
-    unlocked: false,
-  },
-  {
-    id: '4',
-    key: 'streak_7',
-    title: '一周坚持',
-    description: '连续 7 天完成任务',
-    icon: '🔥',
-    progress: 0,
-    target: 7,
-    unlocked: false,
-  },
-  {
-    id: '5',
-    key: 'streak_30',
-    title: '月度之星',
-    description: '连续 30 天完成任务',
-    icon: '💫',
-    progress: 0,
-    target: 30,
-    unlocked: false,
-  },
-  {
-    id: '6',
-    key: 'gold_collector',
-    title: '小富翁',
-    description: '累计获得 1000 金币',
-    icon: '💰',
-    progress: 0,
-    target: 1000,
-    unlocked: false,
-  },
-];
+import { localAchievementService } from '../../src/lib/local-storage';
 
 export default function AchievementsScreen() {
-  const { user } = useAuth();
-  const [achievements, setAchievements] = useState<Achievement[]>(DEFAULT_ACHIEVEMENTS);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
-    if (!user) {
-      setAchievements(DEFAULT_ACHIEVEMENTS);
-      return;
-    }
-
     try {
-      const data = await achievementService.getAll(user.id);
-      if (data.length > 0) {
-        setAchievements(data);
-      }
+      const data = await localAchievementService.getAll();
+      setAchievements(data);
     } catch (error) {
       console.error('加载成就失败:', error);
     }
-  }, [user]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

@@ -13,16 +13,17 @@ import {
   Modal,
   TextInput,
   Alert,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 import { Ionicons } from '@expo/vector-icons';
-import { QuestCard, Button } from '../../src/components';
+import { QuestCard } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Quest, QuestStatus, QuestType, Difficulty, QuestTag } from '../../src/types';
-import { useAuth } from '../../src/lib/auth';
-import { questService, characterService } from '../../src/lib/services';
+import { localQuestService, localCharacterService } from '../../src/lib/local-storage';
 import { calculateRewards } from '../../src/lib/rewards';
 
 type FilterType = 'ALL' | QuestType;
@@ -56,10 +57,8 @@ const TAGS: { key: QuestTag; label: string; emoji: string }[] = [
 ];
 
 export default function QuestsScreen() {
-  const { user } = useAuth();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [filter, setFilter] = useState<FilterType>('ALL');
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
   // 新任务表单状态
@@ -69,22 +68,15 @@ export default function QuestsScreen() {
   const [newDifficulty, setNewDifficulty] = useState<Difficulty>('MEDIUM');
   const [newTag, setNewTag] = useState<QuestTag>('WORK');
 
-  // 加载数据
+  // 加载本地数据
   const loadData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      const data = await questService.getAll(user.id);
+      const data = await localQuestService.getAll();
       setQuests(data);
     } catch (error) {
       console.error('加载任务失败:', error);
-    } finally {
-      setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,67 +89,71 @@ export default function QuestsScreen() {
       prev.map((q) => (q.id === id ? { ...q, status } : q))
     );
 
-    if (user) {
-      const quest = quests.find((q) => q.id === id);
-      await questService.updateStatus(id, status);
+    const quest = quests.find((q) => q.id === id);
+    await localQuestService.updateStatus(id, status);
 
-      // 如果完成任务，增加奖励
-      if (status === 'DONE' && quest) {
-        await characterService.addRewards(user.id, {
-          exp: quest.expReward,
-          gold: quest.goldReward,
-          str: quest.strReward,
-          int: quest.intReward,
-          foc: quest.focReward,
-          vit: quest.vitReward,
-        });
-      }
+    // 如果完成任务，增加奖励
+    if (status === 'DONE' && quest) {
+      await localCharacterService.addRewards({
+        exp: quest.expReward,
+        gold: quest.goldReward,
+        str: quest.strReward,
+        int: quest.intReward,
+        foc: quest.focReward,
+        vit: quest.vitReward,
+      });
     }
   };
 
   const handleDelete = async (id: string) => {
     setQuests((prev) => prev.filter((q) => q.id !== id));
-
-    if (user) {
-      await questService.delete(id);
-    }
+    await localQuestService.delete(id);
   };
 
   const handleCreateQuest = async () => {
+    console.log('🚀 handleCreateQuest called, title:', newTitle);
+    
     if (!newTitle.trim()) {
-      Alert.alert('提示', '请输入任务名称');
+      if (Platform.OS === 'web') {
+        window.alert('请输入任务名称');
+      } else {
+        Alert.alert('提示', '请输入任务名称');
+      }
       return;
     }
 
-    if (!user) {
-      Alert.alert('提示', '请先登录');
-      return;
-    }
+    try {
+      const rewards = calculateRewards(newDifficulty, newType, newTag);
+      console.log('📊 计算奖励:', rewards);
 
-    const rewards = calculateRewards(newDifficulty, newType, newTag);
+      const newQuest = await localQuestService.create({
+        title: newTitle.trim(),
+        description: newDescription.trim() || undefined,
+        type: newType,
+        difficulty: newDifficulty,
+        tag: newTag,
+        status: 'TODO',
+        expReward: rewards.expReward,
+        goldReward: rewards.goldReward,
+        strReward: rewards.statReward.strength,
+        intReward: rewards.statReward.intelligence,
+        focReward: rewards.statReward.focus,
+        vitReward: rewards.statReward.vitality,
+        isToday: true,
+      });
 
-    const newQuest = await questService.create(user.id, {
-      title: newTitle.trim(),
-      description: newDescription.trim() || undefined,
-      type: newType,
-      difficulty: newDifficulty,
-      tag: newTag,
-      status: 'TODO',
-      expReward: rewards.expReward,
-      goldReward: rewards.goldReward,
-      strReward: rewards.statReward.strength,
-      intReward: rewards.statReward.intelligence,
-      focReward: rewards.statReward.focus,
-      vitReward: rewards.statReward.vitality,
-      isToday: true,
-    });
+      console.log('✅ 创建结果:', newQuest);
 
-    if (newQuest) {
       setQuests((prev) => [newQuest, ...prev]);
       setShowModal(false);
       resetForm();
-    } else {
-      Alert.alert('错误', '创建任务失败');
+    } catch (error) {
+      console.error('创建任务失败:', error);
+      if (Platform.OS === 'web') {
+        window.alert('创建任务失败，请重试');
+      } else {
+        Alert.alert('错误', '创建任务失败，请重试');
+      }
     }
   };
 
@@ -282,6 +278,13 @@ export default function QuestsScreen() {
         onRequestClose={() => setShowModal(false)}
       >
         <View style={styles.modalOverlay}>
+          {/* 半透明背景 - 点击关闭弹窗（绝对定位，在内容层下面） */}
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowModal(false)}
+          />
+          {/* 内容区域 - 独立层，不受背景点击影响 */}
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>✨ 创建新任务</Text>
@@ -290,7 +293,11 @@ export default function QuestsScreen() {
               </Pressable>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              style={styles.modalScrollView}
+            >
               {/* 任务名称 */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>任务名称 *</Text>
@@ -398,17 +405,21 @@ export default function QuestsScreen() {
                 </View>
               </View>
 
-              {/* 提交按钮 */}
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onPress={handleCreateQuest}
-                style={{ marginTop: spacing.lg }}
-              >
-                创建任务 🚀
-              </Button>
+              {/* 底部留白给按钮空间 */}
+              <View style={styles.scrollBottomSpacer} />
             </ScrollView>
+
+            {/* 提交按钮 - 移到 ScrollView 外部，固定在底部 */}
+            <View style={styles.submitButtonContainer}>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleCreateQuest}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <Text style={styles.submitButtonText}>创建任务 🚀</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -530,8 +541,11 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: colors.background.primary,
@@ -607,5 +621,36 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     color: colors.primary[600],
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  scrollBottomSpacer: {
+    height: spacing.md,
+  },
+  submitButtonContainer: {
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray[100],
+  },
+  submitButton: {
+    backgroundColor: colors.primary[500],
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    // Web 端需要明确 cursor
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+  },
+  submitButtonText: {
+    color: colors.text.inverse,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
   },
 });

@@ -27,29 +27,10 @@ import {
   statColors,
 } from '../../src/theme';
 import { Character } from '../../src/types';
-import { useAuth } from '../../src/lib/auth';
-import { characterService, questService } from '../../src/lib/services';
-
-// 默认角色（游客模式）
-const DEFAULT_CHARACTER: Character = {
-  id: '1',
-  name: '游客冒险者',
-  avatar: 'default',
-  level: 1,
-  exp: 0,
-  gold: 100,
-  title: '新手冒险者',
-  stats: {
-    strength: 5,
-    intelligence: 5,
-    focus: 5,
-    vitality: 5,
-  },
-};
+import { localCharacterService, localQuestService, localStorageService } from '../../src/lib/local-storage';
 
 export default function CharacterScreen() {
-  const { user, signOut } = useAuth();
-  const [character, setCharacter] = useState<Character>(DEFAULT_CHARACTER);
+  const [character, setCharacter] = useState<Character | null>(null);
   const [stats, setStats] = useState({
     totalQuests: 0,
     completedQuests: 0,
@@ -59,17 +40,13 @@ export default function CharacterScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
-    if (!user) return;
-
     try {
       const [charData, questData] = await Promise.all([
-        characterService.get(user.id),
-        questService.getAll(user.id),
+        localCharacterService.get(),
+        localQuestService.getAll(),
       ]);
 
-      if (charData) {
-        setCharacter(charData);
-      }
+      setCharacter(charData);
 
       // 计算统计数据
       const completed = questData.filter((q) => q.status === 'DONE').length;
@@ -86,7 +63,7 @@ export default function CharacterScreen() {
     } catch (error) {
       console.error('加载数据失败:', error);
     }
-  }, [user]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,22 +77,34 @@ export default function CharacterScreen() {
     setRefreshing(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert('退出登录', '确定要退出登录吗？', [
+  const handleResetData = () => {
+    Alert.alert('重置数据', '确定要重置所有数据吗？这将清除你的角色、任务和成就进度。', [
       { text: '取消', style: 'cancel' },
       {
-        text: '确定',
+        text: '确定重置',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
-          router.replace('/login');
+          await localStorageService.clearAll();
+          await loadData();
+          Alert.alert('提示', '数据已重置');
         },
       },
     ]);
   };
 
-  const handleLogin = () => {
-    router.push('/login');
+  const handleEditName = () => {
+    Alert.prompt?.(
+      '修改角色名',
+      '输入新的角色名称',
+      async (name) => {
+        if (name && name.trim()) {
+          const updated = await localCharacterService.update({ name: name.trim() });
+          setCharacter(updated);
+        }
+      },
+      'plain-text',
+      character?.name
+    );
   };
 
   return (
@@ -137,31 +126,27 @@ export default function CharacterScreen() {
           <Text style={styles.title}>我的角色</Text>
           <Pressable
             style={styles.settingsButton}
-            onPress={user ? handleLogout : handleLogin}
+            onPress={handleResetData}
           >
             <Ionicons
-              name={user ? 'log-out-outline' : 'log-in-outline'}
+              name="refresh-outline"
               size={24}
               color={colors.gray[500]}
             />
           </Pressable>
         </View>
 
-        {/* 登录状态 */}
-        {user ? (
-          <View style={styles.userBanner}>
-            <Text style={styles.userText}>📧 {user.email}</Text>
-          </View>
-        ) : (
-          <Pressable style={styles.guestBanner} onPress={handleLogin}>
-            <Text style={styles.guestText}>👻 游客模式 - 点击登录保存数据</Text>
-          </Pressable>
-        )}
+        {/* 数据存储提示 */}
+        <View style={styles.localBanner}>
+          <Text style={styles.localText}>📱 数据存储在本地，无需登录即可使用</Text>
+        </View>
 
         {/* 角色卡片 */}
-        <View>
-          <CharacterCard character={character} />
-        </View>
+        {character && (
+          <View>
+            <CharacterCard character={character} />
+          </View>
+        )}
 
         {/* 统计概览 */}
         <View style={styles.statsOverview}>
@@ -195,57 +180,61 @@ export default function CharacterScreen() {
         </View>
 
         {/* 属性详情 */}
-        <View style={styles.attributesSection}>
-          <Text style={styles.sectionTitle}>💪 属性详情</Text>
-          <View style={styles.attributesList}>
-            <AttributeBar
-              emoji="💪"
-              label="力量"
-              value={character.stats.strength}
-              maxValue={20}
-              color={statColors.strength}
-              description="提升体力任务效率"
-            />
-            <AttributeBar
-              emoji="🧠"
-              label="智力"
-              value={character.stats.intelligence}
-              maxValue={20}
-              color={statColors.intelligence}
-              description="提升学习任务效率"
-            />
-            <AttributeBar
-              emoji="🎯"
-              label="专注"
-              value={character.stats.focus}
-              maxValue={20}
-              color={statColors.focus}
-              description="提升工作任务效率"
-            />
-            <AttributeBar
-              emoji="❤️"
-              label="活力"
-              value={character.stats.vitality}
-              maxValue={20}
-              color={statColors.vitality}
-              description="提升健身任务效率"
-            />
+        {character && (
+          <View style={styles.attributesSection}>
+            <Text style={styles.sectionTitle}>💪 属性详情</Text>
+            <View style={styles.attributesList}>
+              <AttributeBar
+                emoji="💪"
+                label="力量"
+                value={character.stats.strength}
+                maxValue={20}
+                color={statColors.strength}
+                description="提升体力任务效率"
+              />
+              <AttributeBar
+                emoji="🧠"
+                label="智力"
+                value={character.stats.intelligence}
+                maxValue={20}
+                color={statColors.intelligence}
+                description="提升学习任务效率"
+              />
+              <AttributeBar
+                emoji="🎯"
+                label="专注"
+                value={character.stats.focus}
+                maxValue={20}
+                color={statColors.focus}
+                description="提升工作任务效率"
+              />
+              <AttributeBar
+                emoji="❤️"
+                label="活力"
+                value={character.stats.vitality}
+                maxValue={20}
+                color={statColors.vitality}
+                description="提升健身任务效率"
+              />
+            </View>
           </View>
-        </View>
+        )}
 
         {/* 称号历程 */}
-        <View style={styles.titlesSection}>
-          <Text style={styles.sectionTitle}>🏅 称号历程</Text>
-          <View style={styles.titlesList}>
-            <TitleItem title="初出茅庐" level={1} unlocked={character.level >= 1} current={character.level >= 1 && character.level < 3} />
-            <TitleItem title="积极行动者" level={3} unlocked={character.level >= 3} current={character.level >= 3 && character.level < 5} />
-            <TitleItem title="稳定推进者" level={5} unlocked={character.level >= 5} current={character.level >= 5 && character.level < 7} />
-            <TitleItem title="深度潜行者" level={7} unlocked={character.level >= 7} current={character.level >= 7 && character.level < 10} />
-            <TitleItem title="挑战征服者" level={10} unlocked={character.level >= 10} current={character.level >= 10 && character.level < 15} />
-            <TitleItem title="高效执行官" level={15} unlocked={character.level >= 15} current={character.level >= 15 && character.level < 20} />
-            <TitleItem title="传奇冒险者" level={20} unlocked={character.level >= 20} current={character.level >= 20} />
+        {character && (
+          <View style={styles.titlesSection}>
+            <Text style={styles.sectionTitle}>🏅 称号历程</Text>
+            <View style={styles.titlesList}>
+              <TitleItem title="初出茅庐" level={1} unlocked={character.level >= 1} current={character.level >= 1 && character.level < 3} />
+              <TitleItem title="积极行动者" level={3} unlocked={character.level >= 3} current={character.level >= 3 && character.level < 5} />
+              <TitleItem title="稳定推进者" level={5} unlocked={character.level >= 5} current={character.level >= 5 && character.level < 7} />
+              <TitleItem title="深度潜行者" level={7} unlocked={character.level >= 7} current={character.level >= 7 && character.level < 10} />
+              <TitleItem title="挑战征服者" level={10} unlocked={character.level >= 10} current={character.level >= 10 && character.level < 15} />
+              <TitleItem title="高效执行官" level={15} unlocked={character.level >= 15} current={character.level >= 15 && character.level < 20} />
+              <TitleItem title="传奇冒险者" level={20} unlocked={character.level >= 20} current={character.level >= 20} />
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -370,26 +359,15 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: spacing.sm,
   },
-  userBanner: {
-    backgroundColor: colors.primary[100],
+  localBanner: {
+    backgroundColor: colors.mint[100],
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.lg,
   },
-  userText: {
+  localText: {
     fontSize: fontSize.sm,
-    color: colors.primary[700],
-    textAlign: 'center',
-  },
-  guestBanner: {
-    backgroundColor: colors.cream[100],
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  guestText: {
-    fontSize: fontSize.sm,
-    color: colors.cream[700],
+    color: colors.mint[700],
     textAlign: 'center',
   },
   statsOverview: {
