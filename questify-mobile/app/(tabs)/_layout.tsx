@@ -1,6 +1,6 @@
 /**
  * 🏠 Tab 导航布局
- * 底部 3 个 Tab：任务、成就、我的
+ * 底部 4 个 Tab：任务、日志、成就、我的
  */
 
 import { Tabs } from 'expo-router';
@@ -28,6 +28,21 @@ export default function TabLayout() {
             <View style={[styles.iconContainer, focused && styles.iconActive]}>
               <Ionicons
                 name={focused ? 'list' : 'list-outline'}
+                size={24}
+                color={color}
+              />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: '日志',
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.iconActive]}>
+              <Ionicons
+                name={focused ? 'book' : 'book-outline'}
                 size={24}
                 color={color}
               />
