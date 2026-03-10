@@ -53,6 +53,10 @@ export default function QuestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
+  // 编辑模式
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingQuestId, setEditingQuestId] = useState<string | null>(null);
+
   // 新任务表单状态
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -161,6 +165,70 @@ export default function QuestsScreen() {
     setNewType('SIDE');
     setNewDifficulty('MEDIUM');
     setNewTag('WORK');
+    setIsEditMode(false);
+    setEditingQuestId(null);
+  };
+
+  // 打开编辑弹窗
+  const handleEdit = (id: string) => {
+    const quest = quests.find((q) => q.id === id);
+    if (!quest || quest.status === 'DONE') return;
+
+    // 填充表单
+    setNewTitle(quest.title);
+    setNewDescription(quest.description || '');
+    setNewType(quest.type);
+    setNewDifficulty(quest.difficulty);
+    setNewTag(quest.tag);
+    setIsEditMode(true);
+    setEditingQuestId(id);
+    setShowModal(true);
+  };
+
+  // 保存编辑
+  const handleSaveEdit = async () => {
+    if (!newTitle.trim() || !editingQuestId) {
+      if (Platform.OS === 'web') {
+        window.alert('请输入任务名称');
+      } else {
+        Alert.alert('提示', '请输入任务名称');
+      }
+      return;
+    }
+
+    try {
+      const rewards = calculateRewards(newDifficulty, newType, newTag);
+
+      const updates = {
+        title: newTitle.trim(),
+        description: newDescription.trim() || undefined,
+        type: newType,
+        difficulty: newDifficulty,
+        tag: newTag,
+        expReward: rewards.expReward,
+        goldReward: rewards.goldReward,
+        strReward: rewards.statReward.strength,
+        intReward: rewards.statReward.intelligence,
+        focReward: rewards.statReward.focus,
+        vitReward: rewards.statReward.vitality,
+      };
+
+      await localQuestService.update(editingQuestId, updates);
+
+      setQuests((prev) =>
+        prev.map((q) => (q.id === editingQuestId ? { ...q, ...updates } : q))
+      );
+
+      setShowModal(false);
+      resetForm();
+    } catch (error) {
+      console.error('更新任务失败:', error);
+      if (Platform.OS === 'web') {
+        window.alert('更新任务失败，请重试');
+      } else {
+        Alert.alert('错误', '更新任务失败，请重试');
+      }
+    }
   };
 
   // 获取当前时间的问候语
@@ -236,6 +304,7 @@ export default function QuestsScreen() {
                 key={quest.id}
                 quest={quest}
                 onStatusChange={handleStatusChange}
+                onEdit={handleEdit}
                 onDelete={handleDelete}
               />
             ))
@@ -258,6 +327,7 @@ export default function QuestsScreen() {
                 key={quest.id}
                 quest={quest}
                 onStatusChange={handleStatusChange}
+                onEdit={handleEdit}
                 onDelete={handleDelete}
               />
             ))
@@ -279,23 +349,25 @@ export default function QuestsScreen() {
         <Ionicons name="add" size={32} color={colors.text.inverse} />
       </Pressable>
 
-      {/* 创建任务弹窗 */}
+      {/* 创建/编辑任务弹窗 */}
       <Modal
         visible={showModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowModal(false)}
+        onRequestClose={() => { setShowModal(false); resetForm(); }}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
-            onPress={() => setShowModal(false)}
+            onPress={() => { setShowModal(false); resetForm(); }}
           />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>✨ 创建新任务</Text>
-              <Pressable onPress={() => setShowModal(false)}>
+              <Text style={styles.modalTitle}>
+                {isEditMode ? '✏️ 编辑任务' : '✨ 创建新任务'}
+              </Text>
+              <Pressable onPress={() => { setShowModal(false); resetForm(); }}>
                 <Ionicons name="close" size={24} color={colors.text.secondary} />
               </Pressable>
             </View>
@@ -418,11 +490,13 @@ export default function QuestsScreen() {
             <View style={styles.submitButtonContainer}>
               <TouchableOpacity
                 style={styles.submitButton}
-                onPress={handleCreateQuest}
+                onPress={isEditMode ? handleSaveEdit : handleCreateQuest}
                 activeOpacity={0.8}
                 accessibilityRole="button"
               >
-                <Text style={styles.submitButtonText}>创建任务 🚀</Text>
+                <Text style={styles.submitButtonText}>
+                  {isEditMode ? '保存修改 ✅' : '创建任务 🚀'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

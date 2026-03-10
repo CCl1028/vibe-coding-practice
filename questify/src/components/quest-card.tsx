@@ -38,7 +38,7 @@ const DIFFICULTY_LABELS = {
 const TAG_LABELS = {
   STUDY: "学习",
   WORK: "工作",
-  HEALTH: "健身",
+  HEALTH: "健康",
   LIFE: "生活",
 }
 

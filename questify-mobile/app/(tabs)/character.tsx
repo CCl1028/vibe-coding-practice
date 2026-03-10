@@ -256,7 +256,7 @@ export default function CharacterScreen() {
                 value={character.stats.vitality}
                 maxValue={20}
                 color={statColors.vitality}
-                description="提升健身任务效率"
+                description="提升健康任务效率"
               />
             </View>
           </View>

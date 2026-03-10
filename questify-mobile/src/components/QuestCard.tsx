@@ -65,7 +65,7 @@ const DIFFICULTY_STARS = {
 const TAG_LABELS = {
   STUDY: '📚 学习',
   WORK: '💼 工作',
-  HEALTH: '🏃 健身',
+  HEALTH: '🏃 健康',
   LIFE: '🏠 生活',
 };
 
@@ -119,7 +119,7 @@ export function QuestCard({
         isCompleted && styles.completed,
         cardStyle,
       ]}
-      onPress={() => onEdit?.(quest.id)}
+      onPress={() => !isCompleted && onEdit?.(quest.id)}
     >
       {/* 任务类型装饰条 */}
       <View style={[styles.typeStrip, { backgroundColor: typeColor.border }]} />
@@ -188,15 +188,27 @@ export function QuestCard({
           </View>
         </View>
 
-        {/* 删除按钮 */}
-        {onDelete && (
-          <Pressable
-            style={styles.deleteButton}
-            onPress={() => onDelete(quest.id)}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.gray[400]} />
-          </Pressable>
-        )}
+        {/* 操作按钮区 */}
+        <View style={styles.actionButtons}>
+          {/* 编辑按钮 - 仅对未完成任务显示 */}
+          {!isCompleted && onEdit && (
+            <Pressable
+              style={styles.actionButton}
+              onPress={() => onEdit(quest.id)}
+            >
+              <Ionicons name="pencil-outline" size={18} color={colors.primary[500]} />
+            </Pressable>
+          )}
+          {/* 删除按钮 */}
+          {onDelete && (
+            <Pressable
+              style={styles.actionButton}
+              onPress={() => onDelete(quest.id)}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.gray[400]} />
+            </Pressable>
+          )}
+        </View>
       </View>
     </AnimatedPressable>
   );
@@ -330,5 +342,17 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     right: spacing.sm,
     padding: spacing.xs,
+  },
+  actionButtons: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  actionButton: {
+    padding: spacing.xs,
+    backgroundColor: colors.gray[50],
+    borderRadius: borderRadius.sm,
   },
 });
