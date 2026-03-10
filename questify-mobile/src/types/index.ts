@@ -12,6 +12,7 @@ export type Character = {
   id: string;
   name: string;
   avatar: string;
+  avatarUri?: string; // 用户上传的头像 URI
   level: number;
   exp: number;
   gold: number;

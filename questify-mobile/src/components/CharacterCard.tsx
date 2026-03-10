@@ -1,6 +1,6 @@
 /**
  * 👤 角色卡片组件
- * 可爱风格设计
+ * 支持自定义头像、编辑昵称
  */
 
 import React from 'react';
@@ -9,14 +9,8 @@ import {
   Text,
   StyleSheet,
   Image,
+  Pressable,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withRepeat,
-  withSequence,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import { Character } from '../types';
@@ -24,52 +18,50 @@ import { getExpForNextLevel } from '../lib/rewards';
 
 interface CharacterCardProps {
   character: Character;
+  onEditName?: () => void;
+  onEditAvatar?: () => void;
 }
 
-export function CharacterCard({ character }: CharacterCardProps) {
+export function CharacterCard({ character, onEditName, onEditAvatar }: CharacterCardProps) {
   const nextLevelExp = getExpForNextLevel(character.level);
   const progress = (character.exp / nextLevelExp) * 100;
-
-  // 头像弹跳动画
-  const bounceValue = useSharedValue(1);
-
-  React.useEffect(() => {
-    bounceValue.value = withRepeat(
-      withSequence(
-        withSpring(1.05, { damping: 2 }),
-        withSpring(1, { damping: 2 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const avatarStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bounceValue.value }],
-  }));
 
   return (
     <View style={styles.container}>
       {/* 顶部装饰 */}
       <View style={styles.decorTop}>
-        <Text style={styles.decorEmoji}>✨</Text>
-        <Text style={styles.decorEmoji}>⭐</Text>
-        <Text style={styles.decorEmoji}>✨</Text>
+        <Ionicons name="sparkles" size={16} color={colors.cream[400]} />
+        <Ionicons name="star" size={16} color={colors.cream[500]} />
+        <Ionicons name="sparkles" size={16} color={colors.cream[400]} />
       </View>
 
       {/* 头像和基本信息 */}
       <View style={styles.header}>
-        <Animated.View style={[styles.avatarContainer, avatarStyle]}>
+        <Pressable onPress={onEditAvatar} style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarEmoji}>😊</Text>
+            {character.avatarUri ? (
+              <Image source={{ uri: character.avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <Ionicons name="person" size={36} color={colors.primary[400]} />
+            )}
           </View>
           <View style={styles.levelBadge}>
             <Text style={styles.levelText}>Lv.{character.level}</Text>
           </View>
-        </Animated.View>
+          {onEditAvatar && (
+            <View style={styles.editAvatarBadge}>
+              <Ionicons name="camera" size={12} color={colors.text.inverse} />
+            </View>
+          )}
+        </Pressable>
 
         <View style={styles.info}>
-          <Text style={styles.name}>{character.name}</Text>
+          <Pressable onPress={onEditName} style={styles.nameRow}>
+            <Text style={styles.name}>{character.name}</Text>
+            {onEditName && (
+              <Ionicons name="pencil" size={14} color={colors.gray[400]} style={styles.editIcon} />
+            )}
+          </Pressable>
           <View style={styles.titleBadge}>
             <Text style={styles.titleText}>{character.title}</Text>
           </View>
@@ -88,14 +80,14 @@ export function CharacterCard({ character }: CharacterCardProps) {
           </Text>
         </View>
         <View style={styles.expBarBg}>
-          <Animated.View style={[styles.expBarFill, { width: `${progress}%` }]} />
+          <View style={[styles.expBarFill, { width: `${progress}%` }]} />
         </View>
       </View>
 
       {/* 金币 */}
       <View style={styles.goldSection}>
         <View style={styles.goldIcon}>
-          <Text style={styles.goldEmoji}>💰</Text>
+          <Ionicons name="cash" size={24} color={colors.cream[500]} />
         </View>
         <Text style={styles.goldLabel}>金币</Text>
         <Text style={styles.goldValue}>{character.gold}</Text>
@@ -106,25 +98,25 @@ export function CharacterCard({ character }: CharacterCardProps) {
         <Text style={styles.statsTitle}>属性</Text>
         <View style={styles.statsGrid}>
           <StatItem
-            icon="💪"
+            iconName="flash"
             label="力量"
             value={character.stats.strength}
             color={colors.coral[500]}
           />
           <StatItem
-            icon="🧠"
+            iconName="bulb"
             label="智力"
             value={character.stats.intelligence}
             color={colors.sky[500]}
           />
           <StatItem
-            icon="🎯"
+            iconName="eye"
             label="专注"
             value={character.stats.focus}
             color={colors.lavender[500]}
           />
           <StatItem
-            icon="❤️"
+            iconName="heart"
             label="活力"
             value={character.stats.vitality}
             color={colors.mint[500]}
@@ -136,16 +128,16 @@ export function CharacterCard({ character }: CharacterCardProps) {
 }
 
 interface StatItemProps {
-  icon: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   label: string;
   value: number;
   color: string;
 }
 
-function StatItem({ icon, label, value, color }: StatItemProps) {
+function StatItem({ iconName, label, value, color }: StatItemProps) {
   return (
     <View style={styles.statItem}>
-      <Text style={styles.statIcon}>{icon}</Text>
+      <Ionicons name={iconName} size={18} color={color} />
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
     </View>
@@ -171,9 +163,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
-  decorEmoji: {
-    fontSize: 16,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,9 +181,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: colors.primary[300],
+    overflow: 'hidden',
   },
-  avatarEmoji: {
-    fontSize: 36,
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   levelBadge: {
     position: 'absolute',
@@ -212,14 +203,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
   },
+  editAvatarBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: colors.primary[500],
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.background.secondary,
+  },
   info: {
     flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
   },
   name: {
     fontSize: fontSize.xl,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+  },
+  editIcon: {
+    marginLeft: spacing.sm,
   },
   titleBadge: {
     backgroundColor: colors.cream[100],
@@ -280,9 +291,6 @@ const styles = StyleSheet.create({
   goldIcon: {
     marginRight: spacing.sm,
   },
-  goldEmoji: {
-    fontSize: 24,
-  },
   goldLabel: {
     flex: 1,
     fontSize: fontSize.md,
@@ -314,9 +322,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  statIcon: {
-    fontSize: 18,
   },
   statLabel: {
     flex: 1,

@@ -12,9 +12,12 @@ import {
   Pressable,
   Alert,
   RefreshControl,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterCard } from '../../src/components';
@@ -38,6 +41,10 @@ export default function CharacterScreen() {
     totalExp: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
+  
+  // 编辑昵称相关状态
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [editingName, setEditingName] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -92,19 +99,43 @@ export default function CharacterScreen() {
     ]);
   };
 
+  // 打开编辑昵称弹窗
   const handleEditName = () => {
-    Alert.prompt?.(
-      '修改角色名',
-      '输入新的角色名称',
-      async (name) => {
-        if (name && name.trim()) {
-          const updated = await localCharacterService.update({ name: name.trim() });
-          setCharacter(updated);
-        }
-      },
-      'plain-text',
-      character?.name
-    );
+    setEditingName(character?.name || '');
+    setShowNameModal(true);
+  };
+
+  // 保存新昵称
+  const handleSaveName = async () => {
+    if (editingName.trim()) {
+      const updated = await localCharacterService.update({ name: editingName.trim() });
+      setCharacter(updated);
+    }
+    setShowNameModal(false);
+  };
+
+  // 选择头像
+  const handleEditAvatar = async () => {
+    // 请求权限
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('提示', '需要相册权限才能选择头像');
+      return;
+    }
+
+    // 打开图片选择器
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const avatarUri = result.assets[0].uri;
+      const updated = await localCharacterService.update({ avatarUri });
+      setCharacter(updated);
+    }
   };
 
   return (
@@ -138,40 +169,48 @@ export default function CharacterScreen() {
 
         {/* 数据存储提示 */}
         <View style={styles.localBanner}>
-          <Text style={styles.localText}>📱 数据存储在本地，无需登录即可使用</Text>
+          <Ionicons name="phone-portrait-outline" size={16} color={colors.mint[700]} style={{ marginRight: spacing.xs }} />
+          <Text style={styles.localText}>数据存储在本地，无需登录即可使用</Text>
         </View>
 
         {/* 角色卡片 */}
         {character && (
           <View>
-            <CharacterCard character={character} />
+            <CharacterCard 
+              character={character} 
+              onEditName={handleEditName}
+              onEditAvatar={handleEditAvatar}
+            />
           </View>
         )}
 
         {/* 统计概览 */}
         <View style={styles.statsOverview}>
-          <Text style={styles.sectionTitle}>📊 冒险统计</Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="stats-chart" size={20} color={colors.primary[500]} />
+            <Text style={styles.sectionTitle}>冒险统计</Text>
+          </View>
           <View style={styles.statsGrid}>
             <StatCard
-              emoji="🎯"
+              iconName="flag"
               value={stats.totalQuests}
               label="总任务数"
               color={colors.primary[500]}
             />
             <StatCard
-              emoji="✅"
+              iconName="checkmark-circle"
               value={stats.completedQuests}
               label="已完成"
               color={colors.mint[500]}
             />
             <StatCard
-              emoji="🔥"
+              iconName="flame"
               value={stats.streakDays}
               label="连续天数"
               color={colors.coral[500]}
             />
             <StatCard
-              emoji="⭐"
+              iconName="star"
               value={stats.totalExp}
               label="总经验"
               color={colors.lavender[500]}
@@ -182,10 +221,13 @@ export default function CharacterScreen() {
         {/* 属性详情 */}
         {character && (
           <View style={styles.attributesSection}>
-            <Text style={styles.sectionTitle}>💪 属性详情</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="fitness" size={20} color={colors.coral[500]} />
+              <Text style={styles.sectionTitle}>属性详情</Text>
+            </View>
             <View style={styles.attributesList}>
               <AttributeBar
-                emoji="💪"
+                iconName="flash"
                 label="力量"
                 value={character.stats.strength}
                 maxValue={20}
@@ -193,7 +235,7 @@ export default function CharacterScreen() {
                 description="提升体力任务效率"
               />
               <AttributeBar
-                emoji="🧠"
+                iconName="bulb"
                 label="智力"
                 value={character.stats.intelligence}
                 maxValue={20}
@@ -201,7 +243,7 @@ export default function CharacterScreen() {
                 description="提升学习任务效率"
               />
               <AttributeBar
-                emoji="🎯"
+                iconName="eye"
                 label="专注"
                 value={character.stats.focus}
                 maxValue={20}
@@ -209,7 +251,7 @@ export default function CharacterScreen() {
                 description="提升工作任务效率"
               />
               <AttributeBar
-                emoji="❤️"
+                iconName="heart"
                 label="活力"
                 value={character.stats.vitality}
                 maxValue={20}
@@ -223,7 +265,10 @@ export default function CharacterScreen() {
         {/* 称号历程 */}
         {character && (
           <View style={styles.titlesSection}>
-            <Text style={styles.sectionTitle}>🏅 称号历程</Text>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="medal" size={20} color={colors.cream[500]} />
+              <Text style={styles.sectionTitle}>称号历程</Text>
+            </View>
             <View style={styles.titlesList}>
               <TitleItem title="初出茅庐" level={1} unlocked={character.level >= 1} current={character.level >= 1 && character.level < 3} />
               <TitleItem title="积极行动者" level={3} unlocked={character.level >= 3} current={character.level >= 3 && character.level < 5} />
@@ -238,21 +283,58 @@ export default function CharacterScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* 编辑昵称弹窗 */}
+      <Modal
+        visible={showNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>修改昵称</Text>
+            <TextInput
+              style={styles.nameInput}
+              value={editingName}
+              onChangeText={setEditingName}
+              placeholder="输入新昵称"
+              placeholderTextColor={colors.gray[400]}
+              autoFocus
+              maxLength={20}
+            />
+            <View style={styles.modalButtons}>
+              <Pressable 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowNameModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>取消</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={handleSaveName}
+              >
+                <Text style={styles.confirmButtonText}>保存</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 interface StatCardProps {
-  emoji: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   value: number;
   label: string;
   color: string;
 }
 
-function StatCard({ emoji, value, label, color }: StatCardProps) {
+function StatCard({ iconName, value, label, color }: StatCardProps) {
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
+      <Ionicons name={iconName} size={24} color={color} />
       <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -260,7 +342,7 @@ function StatCard({ emoji, value, label, color }: StatCardProps) {
 }
 
 interface AttributeBarProps {
-  emoji: string;
+  iconName: keyof typeof Ionicons.glyphMap;
   label: string;
   value: number;
   maxValue: number;
@@ -269,7 +351,7 @@ interface AttributeBarProps {
 }
 
 function AttributeBar({
-  emoji,
+  iconName,
   label,
   value,
   maxValue,
@@ -281,7 +363,7 @@ function AttributeBar({
   return (
     <View style={styles.attributeItem}>
       <View style={styles.attributeHeader}>
-        <Text style={styles.attributeEmoji}>{emoji}</Text>
+        <Ionicons name={iconName} size={20} color={color} />
         <Text style={styles.attributeLabel}>{label}</Text>
         <Text style={[styles.attributeValue, { color }]}>{value}</Text>
       </View>
@@ -315,7 +397,11 @@ function TitleItem({ title, level, unlocked, current }: TitleItemProps) {
       ]}
     >
       <View style={styles.titleLeft}>
-        <Text style={styles.titleIcon}>{unlocked ? '🏅' : '🔒'}</Text>
+        <Ionicons 
+          name={unlocked ? 'medal' : 'lock-closed'} 
+          size={24} 
+          color={unlocked ? colors.cream[500] : colors.gray[400]} 
+        />
         <View>
           <Text
             style={[styles.titleName, !unlocked && styles.titleLocked]}
@@ -360,6 +446,9 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   localBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.mint[100],
     padding: spacing.md,
     borderRadius: borderRadius.lg,
@@ -368,16 +457,20 @@ const styles = StyleSheet.create({
   localText: {
     fontSize: fontSize.sm,
     color: colors.mint[700],
-    textAlign: 'center',
   },
   statsOverview: {
     marginTop: spacing.xl,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
-    marginBottom: spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -392,13 +485,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
-  statEmoji: {
-    fontSize: 24,
-    marginBottom: spacing.sm,
-  },
   statValue: {
     fontSize: fontSize.xxl,
     fontWeight: fontWeight.bold,
+    marginTop: spacing.sm,
   },
   statLabel: {
     fontSize: fontSize.sm,
@@ -421,9 +511,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.sm,
-  },
-  attributeEmoji: {
-    fontSize: 20,
   },
   attributeLabel: {
     flex: 1,
@@ -478,9 +565,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  titleIcon: {
-    fontSize: 24,
-  },
   titleName: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
@@ -507,5 +591,63 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: spacing.xxl,
+  },
+  // 弹窗样式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  nameInput: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
+    marginBottom: spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.gray[100],
+  },
+  cancelButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  confirmButton: {
+    backgroundColor: colors.primary[500],
+  },
+  confirmButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.inverse,
   },
 });

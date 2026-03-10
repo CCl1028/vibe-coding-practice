@@ -1,5 +1,5 @@
 /**
- * 📜 冒险日志 Tab
+ * 冒险日志 Tab
  * 记录你的每一次成长
  */
 
@@ -352,32 +352,34 @@ export default function HistoryScreen() {
       >
         {/* 页面标题 */}
         <View style={styles.header}>
-          <Text style={styles.title}>📜 冒险日志</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>冒险日志</Text>
+          </View>
           <Text style={styles.subtitle}>记录你的每一次成长</Text>
         </View>
 
         {/* KPI 指标卡 - 一行紧凑布局 */}
         <View style={styles.kpiContainer}>
           <View style={styles.kpiItem}>
-            <Text style={styles.kpiEmoji}>⭐</Text>
+            <Ionicons name="star" size={16} color={colors.cream[500]} />
             <Text style={styles.kpiValue}>{kpis.totalExp}</Text>
             <Text style={styles.kpiLabel}>经验</Text>
           </View>
           <View style={styles.kpiDivider} />
           <View style={styles.kpiItem}>
-            <Text style={styles.kpiEmoji}>✅</Text>
+            <Ionicons name="checkmark-circle" size={16} color={colors.mint[500]} />
             <Text style={styles.kpiValue}>{kpis.completedCount}</Text>
             <Text style={styles.kpiLabel}>完成</Text>
           </View>
           <View style={styles.kpiDivider} />
           <View style={styles.kpiItem}>
-            <Text style={styles.kpiEmoji}>🎯</Text>
+            <Ionicons name="flag" size={16} color={colors.coral[500]} />
             <Text style={styles.kpiValue}>{kpis.mainCompletedDays}</Text>
             <Text style={styles.kpiLabel}>主线</Text>
           </View>
           <View style={styles.kpiDivider} />
           <View style={styles.kpiItem}>
-            <Text style={styles.kpiEmoji}>📊</Text>
+            <Ionicons name="stats-chart" size={16} color={colors.sky[500]} />
             <Text style={styles.kpiValue}>
               {Math.round(kpis.mainCompletionRate * 100)}%
             </Text>
@@ -385,7 +387,7 @@ export default function HistoryScreen() {
           </View>
           <View style={styles.kpiDivider} />
           <View style={styles.kpiItem}>
-            <Text style={styles.kpiEmoji}>🔥</Text>
+            <Ionicons name="flame" size={16} color={colors.coral[500]} />
             <Text style={styles.kpiValue}>{kpis.longestStreak}</Text>
             <Text style={styles.kpiLabel}>连续</Text>
           </View>
@@ -489,7 +491,11 @@ export default function HistoryScreen() {
                     ]}>
                       {new Date(date).getDate()}
                     </Text>
-                    {hasMain && <Text style={styles.cellBadge}>🏅</Text>}
+                    {hasMain && (
+                      <View style={styles.cellBadge}>
+                        <Ionicons name="medal" size={8} color={colors.cream[600]} />
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
@@ -513,12 +519,16 @@ export default function HistoryScreen() {
           <View style={styles.dayDetailSection}>
             {/* 日期标题 */}
             <View style={styles.dayDetailHeader}>
-              <Text style={styles.dayDetailTitle}>
-                📅 {formatDate(selectedSummary.date)}
-              </Text>
+              <View style={styles.dayDetailTitleRow}>
+                <Ionicons name="calendar" size={20} color={colors.primary[500]} />
+                <Text style={styles.dayDetailTitle}>
+                  {formatDate(selectedSummary.date)}
+                </Text>
+              </View>
               {selectedSummary.mainCompleted && (
                 <View style={styles.mainBadge}>
-                  <Text style={styles.mainBadgeText}>🏅 主线达成</Text>
+                  <Ionicons name="medal" size={12} color={colors.cream[600]} style={{ marginRight: 4 }} />
+                  <Text style={styles.mainBadgeText}>主线达成</Text>
                 </View>
               )}
             </View>
@@ -542,9 +552,11 @@ export default function HistoryScreen() {
                 </View>
                 <View style={styles.dayStatDivider} />
                 <View style={styles.dayStat}>
-                  <Text style={styles.dayStatValue}>
-                    {selectedSummary.mainCompleted ? '✓' : '✗'}
-                  </Text>
+                  <Ionicons 
+                    name={selectedSummary.mainCompleted ? 'checkmark-circle' : 'close-circle'} 
+                    size={20} 
+                    color={selectedSummary.mainCompleted ? colors.mint[500] : colors.gray[400]} 
+                  />
                   <Text style={styles.dayStatLabel}>主线</Text>
                 </View>
               </View>
@@ -556,7 +568,10 @@ export default function HistoryScreen() {
               selectedSummary.statGains.focus > 0 ||
               selectedSummary.statGains.vitality > 0) && (
               <View style={styles.statGainsSection}>
-                <Text style={styles.sectionSubtitle}>💪 属性成长</Text>
+                <View style={styles.sectionSubtitleRow}>
+                  <Ionicons name="fitness" size={18} color={colors.coral[500]} />
+                  <Text style={styles.sectionSubtitle}>属性成长</Text>
+                </View>
                 <View style={styles.statGainsRow}>
                   {selectedSummary.statGains.strength > 0 && (
                     <View style={styles.statGain}>
@@ -593,12 +608,15 @@ export default function HistoryScreen() {
             {/* 主线任务 */}
             {selectedSummary.quests.filter(q => q.type === 'MAIN').length > 0 && (
               <View style={styles.questsSection}>
-                <Text style={styles.sectionSubtitle}>⭐ 主线任务</Text>
+                <View style={styles.sectionSubtitleRow}>
+                  <Ionicons name="star" size={18} color={colors.cream[500]} />
+                  <Text style={styles.sectionSubtitle}>主线任务</Text>
+                </View>
                 {selectedSummary.quests
                   .filter(q => q.type === 'MAIN')
                   .map(quest => (
                     <View key={quest.id} style={styles.questItem}>
-                      <Text style={styles.questCheckmark}>☑️</Text>
+                      <Ionicons name="checkbox" size={18} color={colors.mint[500]} style={{ marginRight: 8 }} />
                       <Text style={styles.questTitle}>{quest.title}</Text>
                     </View>
                   ))}
@@ -608,12 +626,15 @@ export default function HistoryScreen() {
             {/* 其他任务 */}
             {selectedSummary.quests.filter(q => q.type !== 'MAIN').length > 0 && (
               <View style={styles.questsSection}>
-                <Text style={styles.sectionSubtitle}>📋 其他任务</Text>
+                <View style={styles.sectionSubtitleRow}>
+                  <Ionicons name="list" size={18} color={colors.primary[500]} />
+                  <Text style={styles.sectionSubtitle}>其他任务</Text>
+                </View>
                 {selectedSummary.quests
                   .filter(q => q.type !== 'MAIN')
                   .map(quest => (
                     <View key={quest.id} style={styles.questItem}>
-                      <Text style={styles.questCheckmark}>☑️</Text>
+                      <Ionicons name="checkbox" size={18} color={colors.mint[500]} style={{ marginRight: 8 }} />
                       <Text style={styles.questTitle}>{quest.title}</Text>
                     </View>
                   ))}
@@ -623,8 +644,9 @@ export default function HistoryScreen() {
             {/* 无任务 */}
             {selectedSummary.quests.length === 0 && (
               <View style={styles.noQuestsSection}>
+                <Ionicons name="bed" size={32} color={colors.gray[400]} style={{ marginBottom: 8 }} />
                 <Text style={styles.noQuestsText}>
-                  这天没有完成任务，休息也是冒险的一部分 💤
+                  这天没有完成任务，休息也是冒险的一部分
                 </Text>
               </View>
             )}
@@ -635,13 +657,17 @@ export default function HistoryScreen() {
         {selectedDate && !selectedSummary && (
           <View style={styles.dayDetailSection}>
             <View style={styles.dayDetailHeader}>
-              <Text style={styles.dayDetailTitle}>
-                📅 {formatDate(selectedDate)}
-              </Text>
+              <View style={styles.dayDetailTitleRow}>
+                <Ionicons name="calendar" size={20} color={colors.primary[500]} />
+                <Text style={styles.dayDetailTitle}>
+                  {formatDate(selectedDate)}
+                </Text>
+              </View>
             </View>
             <View style={styles.noQuestsSection}>
+              <Ionicons name="bed" size={32} color={colors.gray[400]} style={{ marginBottom: 8 }} />
               <Text style={styles.noQuestsText}>
-                这天没有完成任务，休息也是冒险的一部分 💤
+                这天没有完成任务，休息也是冒险的一部分
               </Text>
             </View>
           </View>
@@ -665,6 +691,11 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: spacing.lg,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   title: {
     fontSize: fontSize.xxl,
@@ -695,9 +726,6 @@ const styles = StyleSheet.create({
   kpiItem: {
     flex: 1,
     alignItems: 'center',
-  },
-  kpiEmoji: {
-    fontSize: 16,
   },
   kpiValue: {
     fontSize: fontSize.md,
@@ -801,7 +829,6 @@ const styles = StyleSheet.create({
   cellBadge: {
     position: 'absolute',
     bottom: 1,
-    fontSize: 8,
   },
   todayCell: {
     borderWidth: 2,
@@ -869,12 +896,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  dayDetailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   dayDetailTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
   },
   mainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.cream[100],
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -919,11 +953,16 @@ const styles = StyleSheet.create({
   statGainsSection: {
     marginBottom: spacing.md,
   },
+  sectionSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   sectionSubtitle: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
     color: colors.text.primary,
-    marginBottom: spacing.sm,
   },
   statGainsRow: {
     flexDirection: 'row',
@@ -953,10 +992,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     marginBottom: spacing.sm,
   },
-  questCheckmark: {
-    fontSize: 16,
-    marginRight: spacing.sm,
-  },
   questTitle: {
     fontSize: fontSize.md,
     color: colors.text.primary,
@@ -971,30 +1006,6 @@ const styles = StyleSheet.create({
   noQuestsText: {
     fontSize: fontSize.md,
     color: colors.text.secondary,
-    textAlign: 'center',
-  },
-
-  // 空状态
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.xxxl,
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.xl,
-    marginTop: spacing.xl,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: spacing.lg,
-  },
-  emptyText: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-  },
-  emptyHint: {
-    fontSize: fontSize.md,
-    color: colors.text.secondary,
-    marginTop: spacing.sm,
     textAlign: 'center',
   },
 });
