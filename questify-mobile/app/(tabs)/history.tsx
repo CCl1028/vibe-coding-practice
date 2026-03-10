@@ -59,8 +59,8 @@ const WEEK_DAYS = ['日', '一', '二', '三', '四', '五', '六'];
 const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CALENDAR_PADDING = spacing.md * 2;
-const CELL_GAP = 4;
-const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2 - CALENDAR_PADDING - CELL_GAP * 6) / 7);
+const CELL_GAP = 3;
+const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2 - CALENDAR_PADDING - CELL_GAP * 6) / 7) - 2;
 
 // 起始月份：2026年2月
 const START_YEAR = 2026;
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   calendarSection: {
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.xl,
-    padding: spacing.md,
+    padding: spacing.sm,
     marginBottom: spacing.lg,
   },
   
@@ -760,11 +760,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   monthArrow: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   calendarRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: CELL_GAP,
+    marginBottom: 2,
   },
   emptyCell: {
     width: CELL_SIZE,
@@ -856,16 +856,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[100],
   },
   heatLevel1: {
-    backgroundColor: colors.mint[200],
+    backgroundColor: colors.primary[100],
   },
   heatLevel2: {
-    backgroundColor: colors.mint[300],
+    backgroundColor: colors.primary[200],
   },
   heatLevel3: {
-    backgroundColor: colors.mint[400],
+    backgroundColor: colors.primary[300],
   },
   heatLevel4: {
-    backgroundColor: colors.mint[500],
+    backgroundColor: colors.primary[400],
   },
 
   // 图例
@@ -881,8 +881,8 @@ const styles = StyleSheet.create({
     color: colors.text.muted,
   },
   legendCell: {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     borderRadius: borderRadius.sm,
   },
 

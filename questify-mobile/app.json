@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFF5F8"
+      "backgroundColor": "#F0F9FF"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFF5F8"
+        "backgroundColor": "#F0F9FF"
       },
       "package": "com.questify.mobile"
     },
