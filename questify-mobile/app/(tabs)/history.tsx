@@ -11,7 +11,6 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -48,23 +47,13 @@ type HistoryKPIs = {
   daysInRange: number;
 };
 
-type YearMonth = {
-  year: number;
-  month: number; // 1-12
-};
-
 // ============ 常量 ============
 
-const WEEK_DAYS = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEK_DAYS_FULL = ['日', '一', '二', '三', '四', '五', '六'];
 const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CALENDAR_PADDING = spacing.md * 2;
-const CELL_GAP = 3;
-const CELL_SIZE = Math.floor((SCREEN_WIDTH - spacing.lg * 2 - CALENDAR_PADDING - CELL_GAP * 6) / 7) - 2;
 
-// 起始月份：2026年2月
-const START_YEAR = 2026;
-const START_MONTH = 2;
+// GitHub 风格热力图配置
+const WEEKS_TO_SHOW = 24; // 显示最近 24 周（约半年）
 
 // ============ 工具函数 ============
 
@@ -76,7 +65,7 @@ function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  const weekDay = WEEK_DAYS[date.getDay()];
+  const weekDay = WEEK_DAYS_FULL[date.getDay()];
   return `${month}月${day}日 周${weekDay}`;
 }
 
@@ -89,96 +78,58 @@ function getExpLevel(exp: number): number {
 }
 
 /**
- * 获取当前年月
+ * 生成 GitHub 风格的热力图数据
+ * 返回按周组织的数据，每周是一列，每天是一行
  */
-function getCurrentYearMonth(): YearMonth {
-  const now = new Date();
-  return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-  };
-}
-
-/**
- * 比较两个年月
- * 返回: -1 (a < b), 0 (a == b), 1 (a > b)
- */
-function compareYearMonth(a: YearMonth, b: YearMonth): number {
-  if (a.year !== b.year) {
-    return a.year < b.year ? -1 : 1;
-  }
-  if (a.month !== b.month) {
-    return a.month < b.month ? -1 : 1;
-  }
-  return 0;
-}
-
-/**
- * 获取上一个月
- */
-function getPrevMonth(ym: YearMonth): YearMonth {
-  if (ym.month === 1) {
-    return { year: ym.year - 1, month: 12 };
-  }
-  return { year: ym.year, month: ym.month - 1 };
-}
-
-/**
- * 获取下一个月
- */
-function getNextMonth(ym: YearMonth): YearMonth {
-  if (ym.month === 12) {
-    return { year: ym.year + 1, month: 1 };
-  }
-  return { year: ym.year, month: ym.month + 1 };
-}
-
-/**
- * 获取指定月份的日历数据
- */
-function getMonthWeeks(year: number, month: number): { weeks: string[][]; allDates: string[] } {
+function getHeatmapData(weeksCount: number): { columns: string[][]; monthLabels: { month: string; weekIndex: number }[]; allDates: string[] } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
   const allDates: string[] = [];
+  const columns: string[][] = [];
+  const monthLabels: { month: string; weekIndex: number }[] = [];
   
-  // 获取该月第一天和最后一天
-  const firstDay = new Date(year, month - 1, 1);
-  const lastDay = new Date(year, month, 0);
-  const daysInMonth = lastDay.getDate();
+  // 计算起始日期（从 weeksCount 周前的周日开始）
+  const endDate = new Date(today);
+  // 调整到本周周六（周日到周六为一周）
+  const dayOfWeek = endDate.getDay();
+  endDate.setDate(endDate.getDate() + (6 - dayOfWeek));
   
-  // 生成该月所有日期
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month - 1, day);
-    allDates.push(getDateString(date));
-  }
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - (weeksCount * 7 - 1));
   
-  // 按周组织
-  const weeks: string[][] = [];
-  let currentWeek: string[] = [];
+  // 调整到周日
+  const startDayOfWeek = startDate.getDay();
+  startDate.setDate(startDate.getDate() - startDayOfWeek);
   
-  // 第一天是周几
-  const firstDayOfWeek = firstDay.getDay();
+  let currentDate = new Date(startDate);
+  let lastMonth = -1;
   
-  // 补齐第一周前面的空位
-  for (let i = 0; i < firstDayOfWeek; i++) {
-    currentWeek.push('');
-  }
-  
-  for (const date of allDates) {
-    currentWeek.push(date);
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek);
-      currentWeek = [];
+  for (let week = 0; week < weeksCount; week++) {
+    const column: string[] = [];
+    
+    for (let day = 0; day < 7; day++) {
+      const dateStr = getDateString(currentDate);
+      column.push(dateStr);
+      allDates.push(dateStr);
+      
+      // 记录月份标签（每月第一周）
+      const currentMonth = currentDate.getMonth();
+      if (currentMonth !== lastMonth && day === 0) {
+        monthLabels.push({
+          month: MONTH_NAMES[currentMonth],
+          weekIndex: week,
+        });
+        lastMonth = currentMonth;
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
     }
+    
+    columns.push(column);
   }
   
-  // 补齐最后一周后面的空位
-  if (currentWeek.length > 0) {
-    while (currentWeek.length < 7) {
-      currentWeek.push('');
-    }
-    weeks.push(currentWeek);
-  }
-  
-  return { weeks, allDates };
+  return { columns, monthLabels, allDates };
 }
 
 // ============ 组件 ============
@@ -195,22 +146,12 @@ export default function HistoryScreen() {
   });
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [tooltipDate, setTooltipDate] = useState<string | null>(null);
   
-  // 当前选中的年月
-  const [currentYM, setCurrentYM] = useState<YearMonth>(getCurrentYearMonth());
-  
-  // 起始和结束月份
-  const startYM: YearMonth = { year: START_YEAR, month: START_MONTH };
-  const endYM: YearMonth = getCurrentYearMonth();
-  
-  // 是否可以切换上/下月
-  const canGoPrev = compareYearMonth(currentYM, startYM) > 0;
-  const canGoNext = compareYearMonth(currentYM, endYM) < 0;
-  
-  // 当前月份的日历数据
-  const { weeks, allDates } = useMemo(
-    () => getMonthWeeks(currentYM.year, currentYM.month),
-    [currentYM.year, currentYM.month]
+  // GitHub 风格热力图数据
+  const { columns, monthLabels, allDates } = useMemo(
+    () => getHeatmapData(WEEKS_TO_SHOW),
+    []
   );
 
   // 加载并聚合数据
@@ -255,24 +196,36 @@ export default function HistoryScreen() {
 
       setSummaries(summaryMap);
 
-      // 计算 KPIs（当前月份）
+      // 计算 KPIs
       let totalExp = 0;
       let completedCount = 0;
       let mainCompletedDays = 0;
       let longestStreak = 0;
       let currentStreak = 0;
+      let validDays = 0;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       for (const date of allDates) {
-        const summary = summaryMap.get(date);
-        if (summary) {
-          totalExp += summary.expEarned;
-          completedCount += summary.completedCount;
-          if (summary.mainCompleted) {
-            mainCompletedDays++;
-            currentStreak++;
-            longestStreak = Math.max(longestStreak, currentStreak);
-          } else {
-            currentStreak = 0;
+        const [year, month, day] = date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        dateObj.setHours(0, 0, 0, 0);
+        
+        // 只统计过去的日期
+        if (dateObj <= today) {
+          validDays++;
+          const summary = summaryMap.get(date);
+          if (summary) {
+            totalExp += summary.expEarned;
+            completedCount += summary.completedCount;
+            if (summary.mainCompleted) {
+              mainCompletedDays++;
+              currentStreak++;
+              longestStreak = Math.max(longestStreak, currentStreak);
+            } else {
+              currentStreak = 0;
+            }
           }
         }
       }
@@ -281,28 +234,20 @@ export default function HistoryScreen() {
         totalExp,
         completedCount,
         mainCompletedDays,
-        mainCompletionRate: allDates.length > 0 ? mainCompletedDays / allDates.length : 0,
+        mainCompletionRate: validDays > 0 ? mainCompletedDays / validDays : 0,
         longestStreak,
-        daysInRange: allDates.length,
+        daysInRange: validDays,
       });
     } catch (error) {
       console.error('加载历史数据失败:', error);
     }
   }, [allDates]);
 
-  // 当月份变化时，重置选中日期
+  // 初始化选中今天
   useEffect(() => {
-    // 如果是当前月，选中今天
     const today = getDateString(new Date());
-    const todayYM = getCurrentYearMonth();
-    
-    if (currentYM.year === todayYM.year && currentYM.month === todayYM.month) {
-      setSelectedDate(today);
-    } else {
-      // 否则选中该月第一天
-      setSelectedDate(allDates[0] || null);
-    }
-  }, [currentYM.year, currentYM.month, allDates]);
+    setSelectedDate(today);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -317,21 +262,21 @@ export default function HistoryScreen() {
   };
 
   const handleDayPress = (date: string) => {
-    if (date) {
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    dateObj.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (dateObj <= today) {
       setSelectedDate(date);
     }
   };
 
-  const handlePrevMonth = () => {
-    if (canGoPrev) {
-      setCurrentYM(getPrevMonth(currentYM));
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (canGoNext) {
-      setCurrentYM(getNextMonth(currentYM));
-    }
+  const handleDayLongPress = (date: string) => {
+    setTooltipDate(date);
+    // 3 秒后自动隐藏
+    setTimeout(() => setTooltipDate(null), 3000);
   };
 
   const selectedSummary = selectedDate ? summaries.get(selectedDate) : null;
@@ -393,117 +338,84 @@ export default function HistoryScreen() {
           </View>
         </View>
 
-        {/* 热力图日历 */}
+        {/* GitHub 风格热力图 */}
         <View style={styles.calendarSection}>
-          {/* 月份选择器 */}
-          <View style={styles.monthSelector}>
-            <Pressable
-              style={[styles.monthArrow, !canGoPrev && styles.monthArrowDisabled]}
-              onPress={handlePrevMonth}
-              disabled={!canGoPrev}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={canGoPrev ? colors.primary[500] : colors.gray[300]}
-              />
-            </Pressable>
-            
-            <View style={styles.monthTitleContainer}>
-              <Text style={styles.monthTitle}>
-                {currentYM.year}年{MONTH_NAMES[currentYM.month - 1]}
-              </Text>
-              {currentYM.year === getCurrentYearMonth().year && 
-               currentYM.month === getCurrentYearMonth().month && (
-                <View style={styles.currentMonthBadge}>
-                  <Text style={styles.currentMonthBadgeText}>本月</Text>
-                </View>
-              )}
-            </View>
-            
-            <Pressable
-              style={[styles.monthArrow, !canGoNext && styles.monthArrowDisabled]}
-              onPress={handleNextMonth}
-              disabled={!canGoNext}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={canGoNext ? colors.primary[500] : colors.gray[300]}
-              />
-            </Pressable>
+          <View style={styles.heatmapHeader}>
+            <Text style={styles.heatmapTitle}>热力图</Text>
+            <Text style={styles.heatmapSubtitle}>最近 {WEEKS_TO_SHOW} 周</Text>
           </View>
           
-          {/* 星期标题 */}
-          <View style={styles.weekHeader}>
-            {WEEK_DAYS.map((day) => (
-              <View key={day} style={styles.weekDayCell}>
-                <Text style={styles.weekDayText}>{day}</Text>
+          {/* 月份标签 */}
+          <View style={styles.monthLabelsContainer}>
+            {monthLabels.map((label, index) => (
+              <Text
+                key={index}
+                style={[
+                  styles.monthLabel,
+                  { left: `${(label.weekIndex / WEEKS_TO_SHOW) * 100}%` },
+                ]}
+              >
+                {label.month}
+              </Text>
+            ))}
+          </View>
+
+          {/* 热力图主体 - 不滚动，全部显示 */}
+          <View style={styles.heatmapGrid}>
+            {columns.map((column, colIndex) => (
+              <View key={colIndex} style={styles.heatmapColumn}>
+                {column.map((date) => {
+                  const summary = summaries.get(date);
+                  const level = summary ? getExpLevel(summary.expEarned) : 0;
+                  const isToday = date === getDateString(new Date());
+                  const isSelected = date === selectedDate;
+                  
+                  // 判断是否是未来日期
+                  const [year, month, day] = date.split('-').map(Number);
+                  const dateObj = new Date(year, month - 1, day);
+                  dateObj.setHours(0, 0, 0, 0);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const isFuture = dateObj.getTime() > today.getTime();
+
+                  const heatLevelStyles = [
+                    styles.heatLevel0,
+                    styles.heatLevel1,
+                    styles.heatLevel2,
+                    styles.heatLevel3,
+                    styles.heatLevel4,
+                  ];
+
+                  return (
+                    <Pressable
+                      key={date}
+                      style={[
+                        styles.heatmapCell,
+                        isFuture ? styles.futureCell : heatLevelStyles[level],
+                        isToday && styles.todayCell,
+                        isSelected && styles.selectedCell,
+                      ]}
+                      onPress={() => !isFuture && handleDayPress(date)}
+                      onLongPress={() => handleDayLongPress(date)}
+                      disabled={isFuture}
+                    />
+                  );
+                })}
               </View>
             ))}
           </View>
 
-          {/* 日历网格 */}
-          {weeks.map((week, weekIndex) => (
-            <View key={weekIndex} style={styles.calendarRow}>
-              {week.map((date, dayIndex) => {
-                if (!date) {
-                  // 空白格子
-                  return <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.emptyCell} />;
-                }
-                
-                const summary = summaries.get(date);
-                const level = summary ? getExpLevel(summary.expEarned) : 0;
-                const isToday = date === getDateString(new Date());
-                const isSelected = date === selectedDate;
-                const hasMain = summary?.mainCompleted;
-                
-                // 判断是否是未来日期
-                // 使用 date 字符串解析时需要确保时区一致
-                const [year, month, day] = date.split('-').map(Number);
-                const dateObj = new Date(year, month - 1, day);
-                dateObj.setHours(0, 0, 0, 0);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const isFuture = dateObj.getTime() > today.getTime();
-
-                const heatLevelStyles = [
-                  styles.heatLevel0,
-                  styles.heatLevel1,
-                  styles.heatLevel2,
-                  styles.heatLevel3,
-                  styles.heatLevel4,
-                ];
-
-                return (
-                  <Pressable
-                    key={date}
-                    style={[
-                      styles.calendarCell,
-                      isFuture ? styles.futureCell : heatLevelStyles[level],
-                      isToday && styles.todayCell,
-                      isSelected && styles.selectedCell,
-                    ]}
-                    onPress={() => !isFuture && handleDayPress(date)}
-                    disabled={isFuture}
-                  >
-                    <Text style={[
-                      styles.cellDay,
-                      isFuture && styles.futureCellText,
-                      isSelected && styles.selectedCellText,
-                    ]}>
-                      {new Date(date).getDate()}
-                    </Text>
-                    {hasMain && (
-                      <View style={styles.cellBadge}>
-                        <Ionicons name="medal" size={8} color={colors.cream[600]} />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
+          {/* Tooltip */}
+          {tooltipDate && (
+            <View style={styles.tooltip}>
+              <Text style={styles.tooltipText}>
+                {formatDate(tooltipDate)}
+                {summaries.get(tooltipDate)?.expEarned 
+                  ? ` · ${summaries.get(tooltipDate)?.expEarned} EXP`
+                  : ' · 无贡献'}
+              </Text>
             </View>
-          ))}
+          )}
 
           {/* 图例 */}
           <View style={styles.legend}>
@@ -751,106 +663,83 @@ const styles = StyleSheet.create({
   calendarSection: {
     backgroundColor: colors.background.secondary,
     borderRadius: borderRadius.xl,
-    padding: spacing.sm,
+    padding: spacing.md,
     marginBottom: spacing.lg,
   },
   
-  // 月份选择器
-  monthSelector: {
+  // 热力图标题
+  heatmapHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  monthArrow: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background.primary,
-  },
-  monthArrowDisabled: {
-    backgroundColor: colors.gray[50],
-  },
-  monthTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  monthTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
+  heatmapTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
     color: colors.text.primary,
   },
-  currentMonthBadge: {
-    backgroundColor: colors.primary[100],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  currentMonthBadgeText: {
-    fontSize: fontSize.xs,
-    color: colors.primary[600],
-    fontWeight: fontWeight.medium,
-  },
-  
-  weekHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  weekDayCell: {
-    width: CELL_SIZE,
-    alignItems: 'center',
-  },
-  weekDayText: {
+  heatmapSubtitle: {
     fontSize: fontSize.xs,
     color: colors.text.muted,
   },
-  calendarRow: {
+
+  // 月份标签
+  monthLabelsContainer: {
+    position: 'relative',
+    height: 16,
+    marginBottom: spacing.xs,
+  },
+  monthLabel: {
+    position: 'absolute',
+    fontSize: 10,
+    color: colors.text.muted,
+  },
+
+  // 热力图主体 - 不滚动，自适应宽度
+  heatmapGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 2,
   },
-  emptyCell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
+  heatmapColumn: {
+    flexDirection: 'column',
+    flex: 1,
+    gap: 3.5,
   },
-  calendarCell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  heatmapCell: {
+    aspectRatio: 1,
+    borderRadius: 3.5,
+    marginHorizontal: 1.5,
   },
-  cellDay: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.text.primary,
-  },
-  cellBadge: {
+
+  // Tooltip
+  tooltip: {
     position: 'absolute',
-    bottom: 1,
+    top: 40,
+    left: 20,
+    right: 20,
+    backgroundColor: colors.gray[800],
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    zIndex: 100,
   },
+  tooltipText: {
+    fontSize: fontSize.sm,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  
   todayCell: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.primary[500],
   },
   selectedCell: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.coral[500],
-    backgroundColor: colors.coral[100],
-  },
-  selectedCellText: {
-    color: colors.coral[700],
-    fontWeight: fontWeight.bold,
   },
   futureCell: {
     backgroundColor: colors.gray[50],
-  },
-  futureCellText: {
-    color: colors.gray[300],
   },
   heatLevel0: {
     backgroundColor: colors.gray[100],
