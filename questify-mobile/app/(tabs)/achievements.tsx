@@ -12,7 +12,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Achievement } from '../../src/types';
 
@@ -144,18 +144,15 @@ export default function AchievementsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 头部 */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <View>
           <Text style={styles.title}>成就殿堂</Text>
           <Text style={styles.subtitle}>
             已解锁 {unlockedCount}/{totalCount} 个成就
           </Text>
-        </Animated.View>
+        </View>
 
         {/* 进度概览 */}
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(500)}
-          style={styles.progressCard}
-        >
+        <View style={styles.progressCard}>
           <View style={styles.progressCircle}>
             <Text style={styles.progressPercent}>
               {Math.round((unlockedCount / totalCount) * 100)}%
@@ -167,7 +164,7 @@ export default function AchievementsScreen() {
               继续加油！还有 {totalCount - unlockedCount} 个成就等你解锁
             </Text>
           </View>
-        </Animated.View>
+        </View>
 
         {/* 筛选 */}
         <View style={styles.filterRow}>
@@ -190,13 +187,8 @@ export default function AchievementsScreen() {
 
         {/* 成就列表 */}
         <View style={styles.achievementsList}>
-          {filteredAchievements.map((achievement, index) => (
-            <Animated.View
-              key={achievement.id}
-              entering={FadeInDown.delay(300 + index * 50).duration(400)}
-            >
-              <AchievementCard achievement={achievement} />
-            </Animated.View>
+          {filteredAchievements.map((achievement) => (
+            <AchievementCard key={achievement.id} achievement={achievement} />
           ))}
         </View>
 

@@ -12,7 +12,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
 import { CharacterCard, QuestCard, Button } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
 import { Character, Quest, QuestStatus } from '../../src/types';
@@ -139,16 +139,13 @@ export default function HomeScreen() {
         }
       >
         {/* 问候语 */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <View>
           <Text style={styles.greeting}>{getGreeting()}</Text>
           <Text style={styles.subtitle}>冒险者 {character.name}！</Text>
-        </Animated.View>
+        </View>
 
         {/* 今日进度 */}
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(500)}
-          style={styles.progressCard}
-        >
+        <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressEmoji}>🎯</Text>
             <Text style={styles.progressTitle}>今日进度</Text>
@@ -171,16 +168,16 @@ export default function HomeScreen() {
               <Text style={styles.progressLabel}>完成率</Text>
             </View>
           </View>
-        </Animated.View>
+        </View>
 
         {/* 角色卡片 */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+        <View>
           <CharacterCard character={character} />
-        </Animated.View>
+        </View>
 
         {/* 主线任务 */}
         {mainQuests.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+          <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEmoji}>⭐</Text>
               <Text style={styles.sectionTitle}>今日主线</Text>
@@ -193,11 +190,11 @@ export default function HomeScreen() {
                 onDelete={handleDelete}
               />
             ))}
-          </Animated.View>
+          </View>
         )}
 
         {/* 其他任务 */}
-        <Animated.View entering={FadeInDown.delay(500).duration(500)}>
+        <View>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionEmoji}>📋</Text>
             <Text style={styles.sectionTitle}>其他任务</Text>
@@ -218,7 +215,7 @@ export default function HomeScreen() {
               <Text style={styles.emptyHint}>去任务页面添加新任务吧！</Text>
             </View>
           )}
-        </Animated.View>
+        </View>
 
         {/* 底部间距 */}
         <View style={styles.bottomSpacer} />

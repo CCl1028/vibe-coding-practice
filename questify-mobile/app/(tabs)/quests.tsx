@@ -12,7 +12,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+
 import { Ionicons } from '@expo/vector-icons';
 import { QuestCard, Button } from '../../src/components';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../src/theme';
@@ -161,50 +161,42 @@ export default function QuestsScreen() {
       >
         {/* 待完成 */}
         {todoQuests.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEmoji}>📝</Text>
               <Text style={styles.sectionTitle}>
                 待完成 ({todoQuests.length})
               </Text>
             </View>
-            {todoQuests.map((quest, index) => (
-              <Animated.View
+            {todoQuests.map((quest) => (
+              <QuestCard
                 key={quest.id}
-                entering={FadeInDown.delay(150 + index * 50).duration(400)}
-              >
-                <QuestCard
-                  quest={quest}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              </Animated.View>
+                quest={quest}
+                onStatusChange={handleStatusChange}
+                onDelete={handleDelete}
+              />
             ))}
-          </Animated.View>
+          </View>
         )}
 
         {/* 已完成 */}
         {doneQuests.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionEmoji}>✅</Text>
               <Text style={styles.sectionTitle}>
                 已完成 ({doneQuests.length})
               </Text>
             </View>
-            {doneQuests.map((quest, index) => (
-              <Animated.View
+            {doneQuests.map((quest) => (
+              <QuestCard
                 key={quest.id}
-                entering={FadeInDown.delay(350 + index * 50).duration(400)}
-              >
-                <QuestCard
-                  quest={quest}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                />
-              </Animated.View>
+                quest={quest}
+                onStatusChange={handleStatusChange}
+                onDelete={handleDelete}
+              />
             ))}
-          </Animated.View>
+          </View>
         )}
 
         {/* 空状态 */}

@@ -12,7 +12,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
 import { Ionicons } from '@expo/vector-icons';
 import { CharacterCard } from '../../src/components';
 import {
@@ -60,26 +60,20 @@ export default function CharacterScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 头部 */}
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(500)}
-          style={styles.header}
-        >
+        <View style={styles.header}>
           <Text style={styles.title}>我的角色</Text>
           <Pressable style={styles.settingsButton}>
             <Ionicons name="settings-outline" size={24} color={colors.gray[500]} />
           </Pressable>
-        </Animated.View>
+        </View>
 
         {/* 角色卡片 */}
-        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <View>
           <CharacterCard character={character} />
-        </Animated.View>
+        </View>
 
         {/* 统计概览 */}
-        <Animated.View
-          entering={FadeInDown.delay(300).duration(500)}
-          style={styles.statsOverview}
-        >
+        <View style={styles.statsOverview}>
           <Text style={styles.sectionTitle}>📊 冒险统计</Text>
           <View style={styles.statsGrid}>
             <StatCard
@@ -107,13 +101,10 @@ export default function CharacterScreen() {
               color={colors.lavender[500]}
             />
           </View>
-        </Animated.View>
+        </View>
 
         {/* 属性详情 */}
-        <Animated.View
-          entering={FadeInDown.delay(400).duration(500)}
-          style={styles.attributesSection}
-        >
+        <View style={styles.attributesSection}>
           <Text style={styles.sectionTitle}>💪 属性详情</Text>
           <View style={styles.attributesList}>
             <AttributeBar
@@ -149,13 +140,10 @@ export default function CharacterScreen() {
               description="提升健身任务效率"
             />
           </View>
-        </Animated.View>
+        </View>
 
         {/* 称号历程 */}
-        <Animated.View
-          entering={FadeInDown.delay(500).duration(500)}
-          style={styles.titlesSection}
-        >
+        <View style={styles.titlesSection}>
           <Text style={styles.sectionTitle}>🏅 称号历程</Text>
           <View style={styles.titlesList}>
             <TitleItem title="初出茅庐" level={1} unlocked />
@@ -166,7 +154,7 @@ export default function CharacterScreen() {
             <TitleItem title="高效执行官" level={15} />
             <TitleItem title="传奇冒险者" level={20} />
           </View>
-        </Animated.View>
+        </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
