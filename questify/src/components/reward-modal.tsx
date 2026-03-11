@@ -23,7 +23,7 @@ interface RewardModalProps {
 export function RewardModal({ isOpen, onClose, quest, isMainQuest = false }: RewardModalProps) {
   const statRewards = [
     { label: "力量", value: quest.strReward, icon: <Zap className="w-4 h-4" />, color: "text-red-400" },
-    { label: "智力", value: quest.intReward, icon: <Brain className="w-4 h-4" />, color: "text-blue-400" },
+    { label: "知识", value: quest.intReward, icon: <Brain className="w-4 h-4" />, color: "text-blue-400" },
     { label: "专注", value: quest.focReward, icon: <Target className="w-4 h-4" />, color: "text-purple-400" },
     { label: "活力", value: quest.vitReward, icon: <Heart className="w-4 h-4" />, color: "text-green-400" },
   ].filter((stat) => stat.value > 0)

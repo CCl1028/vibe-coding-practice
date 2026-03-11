@@ -249,7 +249,7 @@ export function QuestFormModal({
               </div>
               <div className="text-sm text-muted-foreground">
                 {rewards.statReward.strength > 0 && "力量 +1"}
-                {rewards.statReward.intelligence > 0 && "智力 +1"}
+                {rewards.statReward.intelligence > 0 && "知识 +1"}
                 {rewards.statReward.focus > 0 && "专注 +1"}
                 {rewards.statReward.vitality > 0 && "活力 +1"}
               </div>

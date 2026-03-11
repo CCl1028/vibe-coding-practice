@@ -73,7 +73,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
             />
             <StatItem
               icon={<Brain className="w-4 h-4" />}
-              label="智力"
+              label="知识"
               value={character.stats.intelligence}
               color="text-blue-400"
             />

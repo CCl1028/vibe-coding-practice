@@ -105,7 +105,7 @@ export function CharacterCard({ character, onEditName, onEditAvatar }: Character
           />
           <StatItem
             iconName="bulb"
-            label="智力"
+            label="知识"
             value={character.stats.intelligence}
             color={colors.sky[500]}
           />

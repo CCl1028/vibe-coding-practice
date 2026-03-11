@@ -498,7 +498,7 @@ export default function HistoryScreen() {
                   {selectedSummary.statGains.intelligence > 0 && (
                     <View style={styles.statGain}>
                       <Text style={[styles.statGainText, { color: colors.sky[500] }]}>
-                        智力 +{selectedSummary.statGains.intelligence}
+                        知识 +{selectedSummary.statGains.intelligence}
                       </Text>
                     </View>
                   )}

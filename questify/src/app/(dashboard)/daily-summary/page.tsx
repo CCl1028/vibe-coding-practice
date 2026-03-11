@@ -153,7 +153,7 @@ export default function DailySummaryPage() {
                   {todayReward.totalStats.intelligence > 0 && (
                     <StatItem
                       icon={<Brain className="w-4 h-4" />}
-                      label="智力"
+                      label="知识"
                       value={todayReward.totalStats.intelligence}
                       color="text-blue-500"
                     />

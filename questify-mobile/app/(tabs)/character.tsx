@@ -236,7 +236,7 @@ export default function CharacterScreen() {
               />
               <AttributeBar
                 iconName="bulb"
-                label="智力"
+                label="知识"
                 value={character.stats.intelligence}
                 maxValue={20}
                 color={statColors.intelligence}
