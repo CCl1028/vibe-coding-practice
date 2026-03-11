@@ -48,19 +48,22 @@ type HistoryKPIs = {
   daysInRange: number;
 };
 
-type HalfYearPeriod = {
+type TimePeriod = {
   id: string;
   label: string;
-  year: number;
-  half: 1 | 2; // H1 = 1-6月, H2 = 7-12月
-  startDate: Date;
-  endDate: Date;
+  subtitle: string; // 副标题说明
+  isDefault?: boolean; // 是否是默认的"近半年"选项
+  year?: number;
+  half?: 1 | 2; // H1 = 1-6月, H2 = 7-12月
+  startDate?: Date;
+  endDate?: Date;
 };
 
 // ============ 常量 ============
 
 const WEEK_DAYS_FULL = ['日', '一', '二', '三', '四', '五', '六'];
 const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+const WEEKS_TO_SHOW = 24; // 默认显示最近 24 周（约半年）
 
 // ============ 工具函数 ============
 
@@ -85,16 +88,83 @@ function getExpLevel(exp: number): number {
 }
 
 /**
- * 生成可选的半年时间段列表
- * 包括当前半年及之前的几个半年
+ * 生成默认的最近 N 周热力图数据
  */
-function getAvailablePeriods(): HalfYearPeriod[] {
+function getDefaultHeatmapData(weeksCount: number): { 
+  columns: string[][]; 
+  monthLabels: { month: string; weekIndex: number }[]; 
+  allDates: string[];
+  weeksCount: number;
+} {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const allDates: string[] = [];
+  const columns: string[][] = [];
+  const monthLabels: { month: string; weekIndex: number }[] = [];
+  
+  // 计算起始日期（从 weeksCount 周前的周日开始）
+  const endDate = new Date(today);
+  // 调整到本周周六（周日到周六为一周）
+  const dayOfWeek = endDate.getDay();
+  endDate.setDate(endDate.getDate() + (6 - dayOfWeek));
+  
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - (weeksCount * 7 - 1));
+  
+  // 调整到周日
+  const startDayOfWeek = startDate.getDay();
+  startDate.setDate(startDate.getDate() - startDayOfWeek);
+  
+  let currentDate = new Date(startDate);
+  let lastMonth = -1;
+  
+  for (let week = 0; week < weeksCount; week++) {
+    const column: string[] = [];
+    
+    for (let day = 0; day < 7; day++) {
+      const dateStr = getDateString(currentDate);
+      column.push(dateStr);
+      allDates.push(dateStr);
+      
+      // 记录月份标签（每月第一周）
+      const currentMonth = currentDate.getMonth();
+      if (currentMonth !== lastMonth && day === 0) {
+        monthLabels.push({
+          month: MONTH_NAMES[currentMonth],
+          weekIndex: week,
+        });
+        lastMonth = currentMonth;
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    columns.push(column);
+  }
+  
+  return { columns, monthLabels, allDates, weeksCount };
+}
+
+/**
+ * 生成可选的时间段列表
+ * 包括"近半年"默认选项 + 具体的半年时间段
+ */
+function getAvailablePeriods(): TimePeriod[] {
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); // 0-11
   const currentHalf = currentMonth < 6 ? 1 : 2;
   
-  const periods: HalfYearPeriod[] = [];
+  const periods: TimePeriod[] = [];
+  
+  // 添加"近半年"默认选项（过去 24 周）
+  periods.push({
+    id: 'recent',
+    label: '近半年',
+    subtitle: '过去 24 周',
+    isDefault: true,
+  });
   
   // 生成最近 4 个半年的选项（当前半年 + 过去 3 个半年）
   let year = currentYear;
@@ -110,6 +180,7 @@ function getAvailablePeriods(): HalfYearPeriod[] {
     periods.push({
       id: `${year}H${half}`,
       label: `${year} H${half}`,
+      subtitle: half === 1 ? '1月 - 6月' : '7月 - 12月',
       year,
       half,
       startDate,
@@ -132,18 +203,23 @@ function getAvailablePeriods(): HalfYearPeriod[] {
  * 根据选定的时间段生成热力图数据
  * 返回按周组织的数据，每周是一列，每天是一行
  */
-function getHeatmapDataForPeriod(period: HalfYearPeriod): { 
+function getHeatmapDataForPeriod(period: TimePeriod): { 
   columns: string[][]; 
   monthLabels: { month: string; weekIndex: number }[]; 
   allDates: string[];
   weeksCount: number;
 } {
+  // 如果是默认的"近半年"选项，使用过去 24 周
+  if (period.isDefault) {
+    return getDefaultHeatmapData(WEEKS_TO_SHOW);
+  }
+
   const allDates: string[] = [];
   const columns: string[][] = [];
   const monthLabels: { month: string; weekIndex: number }[] = [];
   
   // 从半年的第一天开始
-  const startDate = new Date(period.startDate);
+  const startDate = new Date(period.startDate!);
   // 调整到周日开始
   const startDayOfWeek = startDate.getDay();
   if (startDayOfWeek !== 0) {
@@ -151,7 +227,7 @@ function getHeatmapDataForPeriod(period: HalfYearPeriod): {
   }
   
   // 结束日期调整到周六
-  const endDate = new Date(period.endDate);
+  const endDate = new Date(period.endDate!);
   const endDayOfWeek = endDate.getDay();
   if (endDayOfWeek !== 6) {
     endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
@@ -209,7 +285,7 @@ export default function HistoryScreen() {
   // 可选的时间段列表
   const availablePeriods = useMemo(() => getAvailablePeriods(), []);
   
-  // 当前选中的时间段（默认当前半年）
+  // 当前选中的时间段（默认"近半年"）
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(availablePeriods[0].id);
   
   // 获取当前选中的时间段
@@ -224,17 +300,26 @@ export default function HistoryScreen() {
     [selectedPeriod]
   );
 
-  // 加载并聚合数据
+  // 加载并聚合数据 - KPI 基于全部历史数据，不随时间段切换变化
   const loadData = useCallback(async () => {
     try {
       // 获取所有已完成的任务
       const allQuests = await localQuestService.getAll();
       const completedQuests = allQuests.filter(q => q.status === 'DONE' && q.completedAt);
 
-      // 按天聚合
+      // 按天聚合 - 处理所有已完成任务的日期
       const summaryMap = new Map<string, DailySummary>();
       
-      for (const date of allDates) {
+      // 收集所有有数据的日期
+      const datesWithData = new Set<string>();
+      for (const quest of completedQuests) {
+        if (quest.completedAt) {
+          datesWithData.add(quest.completedAt.split('T')[0]);
+        }
+      }
+      
+      // 为每个有数据的日期生成 summary
+      for (const date of datesWithData) {
         const dayQuests = completedQuests.filter(q => 
           q.completedAt?.startsWith(date)
         );
@@ -266,25 +351,26 @@ export default function HistoryScreen() {
 
       setSummaries(summaryMap);
 
-      // 计算 KPIs
+      // 计算 KPIs - 基于全部历史数据，不受时间段选择影响
       let totalExp = 0;
       let completedCount = 0;
       let mainCompletedDays = 0;
       let longestStreak = 0;
       let currentStreak = 0;
-      let validDays = 0;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      for (const date of allDates) {
+      // 按日期排序所有有数据的日期
+      const sortedDates = Array.from(datesWithData).sort();
+      
+      for (const date of sortedDates) {
         const [year, month, day] = date.split('-').map(Number);
         const dateObj = new Date(year, month - 1, day);
         dateObj.setHours(0, 0, 0, 0);
         
         // 只统计过去的日期
         if (dateObj <= today) {
-          validDays++;
           const summary = summaryMap.get(date);
           if (summary) {
             totalExp += summary.expEarned;
@@ -300,6 +386,14 @@ export default function HistoryScreen() {
         }
       }
 
+      // 计算完成率：有数据的天数中，完成主线的天数占比
+      const validDays = sortedDates.filter(date => {
+        const [year, month, day] = date.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        dateObj.setHours(0, 0, 0, 0);
+        return dateObj <= today;
+      }).length;
+
       setKPIs({
         totalExp,
         completedCount,
@@ -311,7 +405,7 @@ export default function HistoryScreen() {
     } catch (error) {
       console.error('加载历史数据失败:', error);
     }
-  }, [allDates]);
+  }, []); // 不再依赖 allDates，只在初始化和刷新时调用
 
   // 初始化选中今天
   useEffect(() => {
@@ -738,7 +832,7 @@ export default function HistoryScreen() {
                     {period.label}
                   </Text>
                   <Text style={styles.modalOptionSubtext}>
-                    {period.half === 1 ? '1月 - 6月' : '7月 - 12月'}
+                    {period.subtitle}
                   </Text>
                 </View>
                 {selectedPeriodId === period.id && (
