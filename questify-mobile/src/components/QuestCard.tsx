@@ -34,6 +34,7 @@ interface QuestCardProps {
   onStatusChange?: (id: string, status: QuestStatus) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  isOverdue?: boolean; // 是否显示为过期任务
 }
 
 const TYPE_LABELS = {
@@ -76,11 +77,17 @@ export function QuestCard({
   onStatusChange,
   onEdit,
   onDelete,
+  isOverdue = false,
 }: QuestCardProps) {
   const isCompleted = quest.status === 'DONE';
   const isMain = quest.type === 'MAIN';
   const typeColor = questTypeColors[quest.type];
   const difficultyColor = difficultyColors[quest.difficulty];
+  
+  // 过期任务的奖励打折
+  const rewardMultiplier = isOverdue ? 0.5 : 1;
+  const displayExpReward = Math.floor(quest.expReward * rewardMultiplier);
+  const displayGoldReward = Math.floor(quest.goldReward * rewardMultiplier);
 
   // 动画值
   const scale = useSharedValue(1);
@@ -117,12 +124,13 @@ export function QuestCard({
         styles.container,
         isMain && styles.mainQuest,
         isCompleted && styles.completed,
+        isOverdue && styles.overdueQuest,
         cardStyle,
       ]}
       onPress={() => !isCompleted && onEdit?.(quest.id)}
     >
       {/* 任务类型装饰条 */}
-      <View style={[styles.typeStrip, { backgroundColor: typeColor.border }]} />
+      <View style={[styles.typeStrip, { backgroundColor: isOverdue ? '#E53E3E' : typeColor.border }]} />
 
       <View style={styles.content}>
         {/* 完成按钮 + 标题 */}
@@ -178,12 +186,19 @@ export function QuestCard({
         <View style={styles.rewards}>
           <View style={styles.rewardItem}>
             <Text style={styles.rewardEmoji}>✨</Text>
-            <Text style={styles.rewardValue}>+{quest.expReward}</Text>
+            <Text style={[styles.rewardValue, isOverdue && styles.discountedReward]}>
+              +{displayExpReward}
+            </Text>
             <Text style={styles.rewardLabel}>EXP</Text>
+            {isOverdue && (
+              <Text style={styles.discountBadge}>50%</Text>
+            )}
           </View>
           <View style={styles.rewardItem}>
             <Text style={styles.rewardEmoji}>💰</Text>
-            <Text style={styles.rewardValue}>+{quest.goldReward}</Text>
+            <Text style={[styles.rewardValue, isOverdue && styles.discountedReward]}>
+              +{displayGoldReward}
+            </Text>
             <Text style={styles.rewardLabel}>金币</Text>
           </View>
         </View>
@@ -235,6 +250,11 @@ const styles = StyleSheet.create({
   },
   completed: {
     opacity: 0.7,
+  },
+  overdueQuest: {
+    borderWidth: 1,
+    borderColor: '#FED7D7',
+    backgroundColor: '#FFFAFA',
   },
   typeStrip: {
     width: 4,
@@ -354,5 +374,18 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     backgroundColor: colors.gray[50],
     borderRadius: borderRadius.sm,
+  },
+  discountedReward: {
+    color: '#E53E3E',
+  },
+  discountBadge: {
+    fontSize: 10,
+    fontWeight: fontWeight.bold,
+    color: '#E53E3E',
+    backgroundColor: '#FED7D7',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 4,
   },
 });

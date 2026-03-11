@@ -42,6 +42,13 @@ export type Quest = {
   createdAt: string;
   completedAt?: string;
   isToday: boolean;
+  // 过期相关字段
+  isOverdue?: boolean;              // 是否已过期
+  overduePenaltyApplied?: boolean;  // 过期惩罚是否已执行
+  penaltyAmount?: {                 // 惩罚金额记录
+    exp: number;
+    gold: number;
+  };
 };
 
 export type Achievement = {
@@ -67,5 +74,20 @@ export type DailySummary = {
     intelligence: number;
     focus: number;
     vitality: number;
+  };
+};
+
+// 每日检查记录（用于过期结算）
+export type DailyCheckRecord = {
+  lastCheckDate: string;           // 上次检查日期 (YYYY-MM-DD)
+  todayClearAchieved: boolean;     // 今日是否已达成全清
+};
+
+// 过期结算结果
+export type OverdueSettlement = {
+  overdueQuests: Quest[];          // 新过期的任务列表
+  totalPenalty: {
+    exp: number;
+    gold: number;
   };
 };

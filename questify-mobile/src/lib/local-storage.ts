@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Character, Quest, Achievement, QuestStatus } from '../types';
+import { Character, Quest, Achievement, QuestStatus, DailyCheckRecord, OverdueSettlement } from '../types';
 
 // 存储键名
 const KEYS = {
@@ -12,6 +12,7 @@ const KEYS = {
   QUESTS: 'questify_quests',
   ACHIEVEMENTS: 'questify_achievements',
   PLAYER_STATS: 'questify_player_stats',
+  DAILY_CHECK: 'questify_daily_check',
 };
 
 // ============ 默认数据 ============
@@ -156,6 +157,31 @@ export const localCharacterService = {
     await setItem(KEYS.CHARACTER, DEFAULT_CHARACTER);
     return DEFAULT_CHARACTER;
   },
+
+  // 扣除惩罚（删除任务或过期惩罚）
+  async applyPenalty(penalty: { exp?: number; gold?: number }): Promise<Character> {
+    const current = await this.get();
+    
+    let newExp = current.exp - (penalty.exp || 0);
+    let newLevel = current.level;
+    
+    // 经验值不能低于 0，如果低于当前等级的 0，则降级
+    while (newExp < 0 && newLevel > 1) {
+      newLevel--;
+      newExp += newLevel * 100;
+    }
+    if (newExp < 0) newExp = 0;
+
+    const updated: Character = {
+      ...current,
+      exp: newExp,
+      level: newLevel,
+      gold: Math.max(0, current.gold - (penalty.gold || 0)),
+    };
+
+    await setItem(KEYS.CHARACTER, updated);
+    return updated;
+  },
 };
 
 // ============ 任务服务 ============
@@ -260,6 +286,134 @@ export const localQuestService = {
 
     // 更新成就进度
     await localAchievementService.checkQuestAchievements(stats);
+  },
+
+  // 获取今日任务（创建日期为今天）
+  async getTodayQuests(): Promise<Quest[]> {
+    const quests = await getItem<Quest[]>(KEYS.QUESTS, []);
+    const today = new Date().toISOString().split('T')[0];
+    return quests.filter((q) => {
+      const questDate = q.createdAt.split('T')[0];
+      return questDate === today && q.status !== 'DONE';
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  // 获取过期任务（创建日期早于今天且未完成）
+  async getOverdueQuests(): Promise<Quest[]> {
+    const quests = await getItem<Quest[]>(KEYS.QUESTS, []);
+    const today = new Date().toISOString().split('T')[0];
+    return quests.filter((q) => {
+      const questDate = q.createdAt.split('T')[0];
+      return questDate < today && q.status !== 'DONE';
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  // 每日过期结算（返回新过期的任务和总惩罚）
+  async performDailySettlement(): Promise<OverdueSettlement | null> {
+    const today = new Date().toISOString().split('T')[0];
+    const dailyCheck = await getItem<DailyCheckRecord>(KEYS.DAILY_CHECK, {
+      lastCheckDate: '',
+      todayClearAchieved: false,
+    });
+
+    // 如果今天已经检查过，不再执行
+    if (dailyCheck.lastCheckDate === today) {
+      return null;
+    }
+
+    const quests = await getItem<Quest[]>(KEYS.QUESTS, []);
+    const newOverdueQuests: Quest[] = [];
+    let totalExpPenalty = 0;
+    let totalGoldPenalty = 0;
+
+    // 找出新过期的任务（昨天的今日任务变成过期）
+    for (let i = 0; i < quests.length; i++) {
+      const quest = quests[i];
+      const questDate = quest.createdAt.split('T')[0];
+      
+      // 如果任务创建日期早于今天且未完成且未执行过惩罚
+      if (questDate < today && quest.status !== 'DONE' && !quest.overduePenaltyApplied) {
+        // 计算惩罚
+        const expPenalty = quest.type === 'MAIN' ? 20 : 10;
+        
+        quests[i] = {
+          ...quest,
+          isOverdue: true,
+          overduePenaltyApplied: true,
+          penaltyAmount: { exp: expPenalty, gold: 0 },
+        };
+        
+        newOverdueQuests.push(quests[i]);
+        totalExpPenalty += expPenalty;
+      }
+    }
+
+    // 如果有新过期任务，保存更新
+    if (newOverdueQuests.length > 0) {
+      await setItem(KEYS.QUESTS, quests);
+    }
+
+    // 更新每日检查记录
+    await setItem(KEYS.DAILY_CHECK, {
+      lastCheckDate: today,
+      todayClearAchieved: false,
+    });
+
+    // 如果没有新过期任务，返回 null
+    if (newOverdueQuests.length === 0) {
+      return null;
+    }
+
+    return {
+      overdueQuests: newOverdueQuests,
+      totalPenalty: {
+        exp: totalExpPenalty,
+        gold: totalGoldPenalty,
+      },
+    };
+  },
+
+  // 检查是否已达成今日全清
+  async checkTodayClear(): Promise<{ achieved: boolean; reward: number }> {
+    const today = new Date().toISOString().split('T')[0];
+    const dailyCheck = await getItem<DailyCheckRecord>(KEYS.DAILY_CHECK, {
+      lastCheckDate: today,
+      todayClearAchieved: false,
+    });
+
+    // 如果今天已达成过，不再重复奖励
+    if (dailyCheck.todayClearAchieved) {
+      return { achieved: false, reward: 0 };
+    }
+
+    const quests = await getItem<Quest[]>(KEYS.QUESTS, []);
+    const todayQuests = quests.filter((q) => {
+      const questDate = q.createdAt.split('T')[0];
+      return questDate === today;
+    });
+
+    // 如果今日没有任务，不触发全清
+    if (todayQuests.length === 0) {
+      return { achieved: false, reward: 0 };
+    }
+
+    // 检查是否全部完成
+    const allCompleted = todayQuests.every((q) => q.status === 'DONE');
+    if (!allCompleted) {
+      return { achieved: false, reward: 0 };
+    }
+
+    // 标记今日全清已达成
+    await setItem(KEYS.DAILY_CHECK, {
+      ...dailyCheck,
+      todayClearAchieved: true,
+    });
+
+    // 检查是否有主线任务完成
+    const hasMainQuest = todayQuests.some((q) => q.type === 'MAIN');
+    const reward = 20 + (hasMainQuest ? 10 : 0); // 全清20 + 主线10
+
+    return { achieved: true, reward };
   },
 };
 
@@ -379,11 +533,12 @@ export const localAchievementService = {
 
 export const localStorageService = {
   async clearAll(): Promise<void> {
-    await AsyncStorage.multiRemove([
-      KEYS.CHARACTER,
-      KEYS.QUESTS,
-      KEYS.ACHIEVEMENTS,
-      KEYS.PLAYER_STATS,
+    await Promise.all([
+      AsyncStorage.removeItem(KEYS.CHARACTER),
+      AsyncStorage.removeItem(KEYS.QUESTS),
+      AsyncStorage.removeItem(KEYS.ACHIEVEMENTS),
+      AsyncStorage.removeItem(KEYS.PLAYER_STATS),
+      AsyncStorage.removeItem(KEYS.DAILY_CHECK),
     ]);
   },
 
