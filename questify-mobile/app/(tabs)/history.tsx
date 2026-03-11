@@ -11,6 +11,7 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -47,13 +48,19 @@ type HistoryKPIs = {
   daysInRange: number;
 };
 
+type HalfYearPeriod = {
+  id: string;
+  label: string;
+  year: number;
+  half: 1 | 2; // H1 = 1-6月, H2 = 7-12月
+  startDate: Date;
+  endDate: Date;
+};
+
 // ============ 常量 ============
 
 const WEEK_DAYS_FULL = ['日', '一', '二', '三', '四', '五', '六'];
 const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-
-// GitHub 风格热力图配置
-const WEEKS_TO_SHOW = 24; // 显示最近 24 周（约半年）
 
 // ============ 工具函数 ============
 
@@ -78,34 +85,83 @@ function getExpLevel(exp: number): number {
 }
 
 /**
- * 生成 GitHub 风格的热力图数据
+ * 生成可选的半年时间段列表
+ * 包括当前半年及之前的几个半年
+ */
+function getAvailablePeriods(): HalfYearPeriod[] {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-11
+  const currentHalf = currentMonth < 6 ? 1 : 2;
+  
+  const periods: HalfYearPeriod[] = [];
+  
+  // 生成最近 4 个半年的选项（当前半年 + 过去 3 个半年）
+  let year = currentYear;
+  let half = currentHalf as 1 | 2;
+  
+  for (let i = 0; i < 4; i++) {
+    const startMonth = half === 1 ? 0 : 6; // 1月或7月
+    const endMonth = half === 1 ? 5 : 11; // 6月或12月
+    
+    const startDate = new Date(year, startMonth, 1);
+    const endDate = new Date(year, endMonth + 1, 0); // 月末
+    
+    periods.push({
+      id: `${year}H${half}`,
+      label: `${year} H${half}`,
+      year,
+      half,
+      startDate,
+      endDate,
+    });
+    
+    // 移动到上一个半年
+    if (half === 1) {
+      half = 2;
+      year--;
+    } else {
+      half = 1;
+    }
+  }
+  
+  return periods;
+}
+
+/**
+ * 根据选定的时间段生成热力图数据
  * 返回按周组织的数据，每周是一列，每天是一行
  */
-function getHeatmapData(weeksCount: number): { columns: string[][]; monthLabels: { month: string; weekIndex: number }[]; allDates: string[] } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
+function getHeatmapDataForPeriod(period: HalfYearPeriod): { 
+  columns: string[][]; 
+  monthLabels: { month: string; weekIndex: number }[]; 
+  allDates: string[];
+  weeksCount: number;
+} {
   const allDates: string[] = [];
   const columns: string[][] = [];
   const monthLabels: { month: string; weekIndex: number }[] = [];
   
-  // 计算起始日期（从 weeksCount 周前的周日开始）
-  const endDate = new Date(today);
-  // 调整到本周周六（周日到周六为一周）
-  const dayOfWeek = endDate.getDay();
-  endDate.setDate(endDate.getDate() + (6 - dayOfWeek));
-  
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - (weeksCount * 7 - 1));
-  
-  // 调整到周日
+  // 从半年的第一天开始
+  const startDate = new Date(period.startDate);
+  // 调整到周日开始
   const startDayOfWeek = startDate.getDay();
-  startDate.setDate(startDate.getDate() - startDayOfWeek);
+  if (startDayOfWeek !== 0) {
+    startDate.setDate(startDate.getDate() - startDayOfWeek);
+  }
+  
+  // 结束日期调整到周六
+  const endDate = new Date(period.endDate);
+  const endDayOfWeek = endDate.getDay();
+  if (endDayOfWeek !== 6) {
+    endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
+  }
   
   let currentDate = new Date(startDate);
   let lastMonth = -1;
+  let weekIndex = 0;
   
-  for (let week = 0; week < weeksCount; week++) {
+  while (currentDate <= endDate) {
     const column: string[] = [];
     
     for (let day = 0; day < 7; day++) {
@@ -118,7 +174,7 @@ function getHeatmapData(weeksCount: number): { columns: string[][]; monthLabels:
       if (currentMonth !== lastMonth && day === 0) {
         monthLabels.push({
           month: MONTH_NAMES[currentMonth],
-          weekIndex: week,
+          weekIndex,
         });
         lastMonth = currentMonth;
       }
@@ -127,9 +183,10 @@ function getHeatmapData(weeksCount: number): { columns: string[][]; monthLabels:
     }
     
     columns.push(column);
+    weekIndex++;
   }
   
-  return { columns, monthLabels, allDates };
+  return { columns, monthLabels, allDates, weeksCount: weekIndex };
 }
 
 // ============ 组件 ============
@@ -147,11 +204,24 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [tooltipDate, setTooltipDate] = useState<string | null>(null);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   
-  // GitHub 风格热力图数据
-  const { columns, monthLabels, allDates } = useMemo(
-    () => getHeatmapData(WEEKS_TO_SHOW),
-    []
+  // 可选的时间段列表
+  const availablePeriods = useMemo(() => getAvailablePeriods(), []);
+  
+  // 当前选中的时间段（默认当前半年）
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(availablePeriods[0].id);
+  
+  // 获取当前选中的时间段
+  const selectedPeriod = useMemo(
+    () => availablePeriods.find(p => p.id === selectedPeriodId) || availablePeriods[0],
+    [availablePeriods, selectedPeriodId]
+  );
+  
+  // GitHub 风格热力图数据 - 根据选中的时间段动态生成
+  const { columns, monthLabels, allDates, weeksCount } = useMemo(
+    () => getHeatmapDataForPeriod(selectedPeriod),
+    [selectedPeriod]
   );
 
   // 加载并聚合数据
@@ -249,6 +319,34 @@ export default function HistoryScreen() {
     setSelectedDate(today);
   }, []);
 
+  // 切换时间段时，检查并更新选中的日期
+  useEffect(() => {
+    if (selectedDate) {
+      const isDateInPeriod = allDates.includes(selectedDate);
+      if (!isDateInPeriod) {
+        // 如果当前选中的日期不在新时间段内，选择今天（如果在范围内）或时间段的最后一天
+        const today = getDateString(new Date());
+        if (allDates.includes(today)) {
+          setSelectedDate(today);
+        } else {
+          // 选择时间段内最近的过去日期
+          const todayObj = new Date();
+          todayObj.setHours(0, 0, 0, 0);
+          const pastDates = allDates.filter(date => {
+            const [year, month, day] = date.split('-').map(Number);
+            const dateObj = new Date(year, month - 1, day);
+            return dateObj <= todayObj;
+          });
+          if (pastDates.length > 0) {
+            setSelectedDate(pastDates[pastDates.length - 1]);
+          } else {
+            setSelectedDate(null);
+          }
+        }
+      }
+    }
+  }, [allDates, selectedDate]);
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -340,9 +438,20 @@ export default function HistoryScreen() {
 
         {/* GitHub 风格热力图 */}
         <View style={styles.calendarSection}>
+          {/* 热力图标题和时间段选择器 */}
           <View style={styles.heatmapHeader}>
             <Text style={styles.heatmapTitle}>热力图</Text>
-            <Text style={styles.heatmapSubtitle}>最近 {WEEKS_TO_SHOW} 周</Text>
+            <Pressable 
+              style={styles.periodPickerButton}
+              onPress={() => setShowPeriodPicker(true)}
+            >
+              <Text style={styles.periodPickerText}>{selectedPeriod.label}</Text>
+              <Ionicons 
+                name="chevron-down" 
+                size={16} 
+                color={colors.primary[500]} 
+              />
+            </Pressable>
           </View>
           
           {/* 月份标签 */}
@@ -352,7 +461,7 @@ export default function HistoryScreen() {
                 key={index}
                 style={[
                   styles.monthLabel,
-                  { left: `${(label.weekIndex / WEEKS_TO_SHOW) * 100}%` },
+                  { left: `${(label.weekIndex / weeksCount) * 100}%` },
                 ]}
               >
                 {label.month}
@@ -588,6 +697,58 @@ export default function HistoryScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* 时间段选择器 Modal */}
+      <Modal
+        visible={showPeriodPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPeriodPicker(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowPeriodPicker(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>选择时间段</Text>
+              <Pressable onPress={() => setShowPeriodPicker(false)}>
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+            {availablePeriods.map((period) => (
+              <Pressable
+                key={period.id}
+                style={[
+                  styles.modalOption,
+                  selectedPeriodId === period.id && styles.modalOptionActive,
+                ]}
+                onPress={() => {
+                  setSelectedPeriodId(period.id);
+                  setShowPeriodPicker(false);
+                }}
+              >
+                <View style={styles.modalOptionContent}>
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      selectedPeriodId === period.id && styles.modalOptionTextActive,
+                    ]}
+                  >
+                    {period.label}
+                  </Text>
+                  <Text style={styles.modalOptionSubtext}>
+                    {period.half === 1 ? '1月 - 6月' : '7月 - 12月'}
+                  </Text>
+                </View>
+                {selectedPeriodId === period.id && (
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primary[500]} />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -666,7 +827,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
-  
+
   // 热力图标题
   heatmapHeader: {
     flexDirection: 'row',
@@ -679,9 +840,81 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.text.primary,
   },
-  heatmapSubtitle: {
-    fontSize: fontSize.xs,
+
+  // 时间段选择器按钮
+  periodPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+  },
+  periodPickerText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary[600],
+  },
+
+  // Modal 弹出层样式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.xl,
+    width: '100%',
+    maxWidth: 320,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  modalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  modalOptionActive: {
+    backgroundColor: colors.primary[50],
+  },
+  modalOptionContent: {
+    flex: 1,
+  },
+  modalOptionText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: colors.text.primary,
+  },
+  modalOptionTextActive: {
+    color: colors.primary[600],
+    fontWeight: fontWeight.semibold,
+  },
+  modalOptionSubtext: {
+    fontSize: fontSize.sm,
     color: colors.text.muted,
+    marginTop: 2,
   },
 
   // 月份标签
